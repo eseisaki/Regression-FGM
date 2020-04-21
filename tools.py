@@ -1,4 +1,5 @@
 import functools
+from collections import deque
 
 CHAR = 1
 INT = 4
@@ -72,3 +73,44 @@ def remote_class(ifc):
         return wrapper_decorator
 
     return decorator_remote
+
+
+###############################################################################
+#
+# Useful
+#
+###############################################################################
+class Window:
+    def __init__(self, step, size):
+        self.window = deque([])
+        self.slide = []
+        self.old = []
+        self.step = step
+        self.size = size
+
+    def update(self, stream):
+
+        for i in stream:
+
+            self.slide.append(i)
+
+            # FIXME: window loses last values if size mod step != 0
+            # if slide is full update window
+            if len(self.slide) == self.step:
+                self.window.extend(self.slide)
+
+                old_count = len(self.window) - self.size
+
+                # when window is full popleft old pairs
+                if old_count > 0:
+                    for each in range(old_count):
+                        self.old.append(self.window.popleft())
+
+                res = self.slide.copy(), self.old.copy()
+
+                self.slide.clear()
+                self.old.clear()
+
+                yield res
+
+# -----------------------------------------------------------------------------
