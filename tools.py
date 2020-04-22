@@ -81,22 +81,36 @@ def remote_class(ifc):
 #
 ###############################################################################
 class Window:
-    def __init__(self, step, size):
+    def __init__(self, step, size,points):
         self.window = deque([])
         self.slide = []
         self.old = []
         self.step = step
         self.size = size
+        self.epoch = 0
+        self.points = points
 
     def update(self, stream):
+        """
+        Given a stream [(x1,x2,...] updates the window
+
+        :param stream: the stream to insert in the window
+        :return: The new values that will be added and the old the will be
+        subtracted from the window when a slide is full
+        """
+        # do not allow invalid window size
+        if self.points < self.size:
+            raise ValueError("Window size cannot be smaller than stream size.")
 
         for i in stream:
 
+            self.epoch += 1
             self.slide.append(i)
 
-            # FIXME: window loses last values if size mod step != 0
             # if slide is full update window
-            if len(self.slide) == self.step:
+            remain = POINTS - POINTS % self.step
+
+            if len(self.slide) == self.step or self.epoch >= remain+1:
                 self.window.extend(self.slide)
 
                 old_count = len(self.window) - self.size
@@ -112,5 +126,4 @@ class Window:
                 self.old.clear()
 
                 yield res
-
 # -----------------------------------------------------------------------------

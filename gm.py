@@ -1,5 +1,6 @@
 from statistics import *
 import constants as const
+import numpy as np
 
 
 ###############################################################################
@@ -84,3 +85,21 @@ def configure_system():
     n.setup_connections()
 
     return n
+
+
+def start_synthetic_simulation(seed, points, features, var):
+    np.random.seed(seed)
+
+    x = np.random.normal(loc=0, scale=1, size=(points, features))
+    x[0, 0] = 1
+    # this w is the true coefficients
+    w = np.random.normal(loc=0, scale=1, size=features)
+
+    b = np.random.normal(loc=0, scale=var * var, size=1)
+    y = np.zeros(points)
+    for i in range(points):
+        y[i] = np.dot(x[i].transpose(), w) + b
+
+        # here we will update window
+        obs = [x[i], y[i]]
+        print('observation', obs)
