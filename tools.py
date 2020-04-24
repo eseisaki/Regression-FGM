@@ -1,4 +1,5 @@
 import functools
+import numpy as np
 from collections import deque
 
 CHAR = 1
@@ -39,6 +40,9 @@ def msg_size(msg):
         byte_size = 0
         for x in msg:
             byte_size += msg_size(x)
+        return byte_size
+    elif isinstance(msg, (np.ndarray, np.generic)):
+        byte_size = FLOAT * msg.size
         return byte_size
     else:
         raise TypeError("Unexpected type of message.")
@@ -81,7 +85,7 @@ def remote_class(ifc):
 #
 ###############################################################################
 class Window:
-    def __init__(self, step, size,points):
+    def __init__(self, step, size, points):
         self.window = deque([])
         self.slide = []
         self.old = []
@@ -108,9 +112,9 @@ class Window:
             self.slide.append(i)
 
             # if slide is full update window
-            remain = POINTS - POINTS % self.step
+            remain = self.points - self.points % self.step
 
-            if len(self.slide) == self.step or self.epoch >= remain+1:
+            if len(self.slide) == self.step or self.epoch >= remain + 1:
                 self.window.extend(self.slide)
 
                 old_count = len(self.window) - self.size

@@ -1,4 +1,11 @@
 from gm import *
 
+
 if __name__ == "__main__":
-    start_synthetic_simulation(1, 10, 10, 2)
+    start_synthetic_simulation(const.SEED, const.POINTS, const.FEATURES,
+                               const.VAR)
+
+
+
+
+

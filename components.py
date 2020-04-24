@@ -364,13 +364,20 @@ class Sender(Host):
         if self.proxy.proxied in self.net.groups:
             try:
                 for send in self.proxy.endpoints[method].send:
-                    send(msg)
+                    if msg is None:
+                        send()
+                    else:
+                        send(msg)
+
             except KeyError:
                 raise TypeError(f"There is no {method!r} remote method")
         else:
             try:
-                self.proxy.endpoints[method].send(msg)
-                self.proxy.endpoints[method].req_channel.transmit(msg)
+                if msg is None:
+                    self.proxy.endpoints[method].send()
+                else:
+                    self.proxy.endpoints[method].send(msg)
+                    self.proxy.endpoints[method].req_channel.transmit(msg)
             except KeyError:
                 raise TypeError(f"There is no {method!r} remote method")
 

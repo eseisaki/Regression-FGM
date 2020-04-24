@@ -2,15 +2,8 @@ from statistics import *
 import constants as const
 import numpy as np
 
+T = 10
 
-###############################################################################
-#
-#  Safe zone
-#
-###############################################################################
-
-# safe_zone = error* norm(dot(A_global,D)) + norm(dot(A_global,d)) +
-# + norm(dot(A_global,D,w_global))
 
 ###############################################################################
 #
@@ -22,6 +15,7 @@ class Coordinator(Sender):
     def __init__(self, net, nid, ifc):
         super().__init__(net, nid, ifc)
         self.A_global = np.zeros(1)
+        self.c_global = np.zeros(1)
         self.w_global = np.zeros(1)
 
     # -------------------------------------------------------------------------
@@ -30,14 +24,25 @@ class Coordinator(Sender):
         self.send("send_data", None)
         pass
 
-    def sync(self, D, d):
+    def sync(self, msg):
+        A, c = msg
         self.incoming_channels += 1
 
-        # TODO: update global estimate
+        # update global estimate
+        self.A_global = np.add(self.A_global, A)
+        self.c_global = np.add(self.c_global, c)
 
         if self.incoming_channels >= const.K:
-            self.send("new_estimate", (self.A_global, self.w_global))
+            # get the average
+            self.A_global = self.A_global / const.K
+            self.c_global = self.c_global / const.K
+
+            # compute coefficients
+            if self.A_global != 0:
+                self.w_global = self.c_global.dot((1 / self.A_global))
+
             self.incoming_channels = 0
+            self.send("new_estimate", (self.A_global, self.w_global))
 
 
 ###############################################################################
@@ -53,26 +58,30 @@ class Site(Sender):
         self.c = np.zeros(1)
         self.D = np.zeros(1)
         self.d = np.zeros(1)
+        self.epoch = 0
         self.A_global = np.zeros(1)
         self.w_global = np.zeros(1)
         self.win = Window(size=const.SIZE, step=const.STEP,
                           points=const.POINTS)
 
     def new_stream(self, stream):
+        self.epoch = +1
         # update window
         try:
             res = self.win.update(stream)
             new, old = next(res)
-
             self.update_state(new, old)
             self.update_drift(new, old)
 
-            # if safe_zone is violated
-            #   call alert()
+            if self.epoch == T:
+                self.epoch = 0
+                self.send("alert", None)
+
         except StopIteration:
             pass
 
     def update_state(self, new, old):
+
         for x, y in new:
             ml1 = x.dot(x.transpose())
             self.A = np.add(self.A, ml1)
@@ -100,7 +109,8 @@ class Site(Sender):
 
     # -------------------------------------------------------------------------
     # REMOTE METHOD
-    def new_estimate(self, A_global, w_global):
+    def new_estimate(self, msg):
+        A_global, w_global = msg
         # save received global estimate
         self.A_global = A_global
         self.w_global = w_global
@@ -109,8 +119,8 @@ class Site(Sender):
         self.d = np.zeros(0)
 
     def send_data(self):
-        # send drifts
-        self.send("sync", (self.D, self.d))
+        # send local state
+        self.send("sync", (self.A, self.c))
         pass
 
 
@@ -140,6 +150,8 @@ def configure_system():
 
 
 def start_synthetic_simulation(seed, points, features, var):
+    net = configure_system()
+
     np.random.seed(seed)
 
     x = np.random.normal(loc=0, scale=1, size=(points, features))
@@ -150,9 +162,17 @@ def start_synthetic_simulation(seed, points, features, var):
     # noise to differentiate train data
     b = np.random.normal(loc=0, scale=var * var, size=1)
     y = np.zeros(points)
+
     for i in range(points):
         y[i] = np.dot(x[i].transpose(), w) + b
 
         # here we will update window
-        obs = [x[i], y[i]]
-        print('observation', obs)
+        obs = [(x[i], y[i])]
+
+        for site in net.sites.values():
+            site.new_stream(obs)
+
+
+if __name__ == "__main__":
+    start_synthetic_simulation(const.SEED, const.POINTS, const.FEATURES,
+                               const.VAR)
