@@ -1,0 +1,4 @@
+/.idea/
+/__pycache__/
+/push.ps1
+/tests/__pycache__/
