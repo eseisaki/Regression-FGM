@@ -2,7 +2,7 @@ from statistics import *
 import constants as const
 import numpy as np
 
-T = 10
+T = 100
 
 
 ###############################################################################
@@ -17,6 +17,7 @@ class Coordinator(Sender):
         self.A_global = np.zeros(1)
         self.c_global = np.zeros(1)
         self.w_global = np.zeros(1)
+        self.counter = 0
 
     # -------------------------------------------------------------------------
     # REMOTE METHOD
@@ -25,23 +26,31 @@ class Coordinator(Sender):
         pass
 
     def sync(self, msg):
-        A, c = msg
+        A, c, counter = msg
         self.incoming_channels += 1
 
         # update global estimate
         self.A_global = np.add(self.A_global, A)
         self.c_global = np.add(self.c_global, c)
-
-        if self.incoming_channels >= const.K:
+        self.counter += counter
+        if self.incoming_channels == const.K:
             # get the average
             self.A_global = self.A_global / const.K
             self.c_global = self.c_global / const.K
 
             # compute coefficients
             if self.A_global != 0:
-                self.w_global = self.c_global.dot((1 / self.A_global))
+                self.w_global = self.c_global * (1 / self.A_global)
 
             self.incoming_channels = 0
+
+            # save coefficients
+            # print(self.counter)
+            w_train = np.append(self.w_global, [self.counter], axis=0)
+            w_train = np.array(w_train)
+            np.savetxt(file, [w_train], delimiter=' ', newline='\n')
+            # print("counter", counter, "\n w:", w_train)
+            self.counter = 0
             self.send("new_estimate", (self.A_global, self.w_global))
 
 
@@ -54,20 +63,29 @@ class Coordinator(Sender):
 class Site(Sender):
     def __init__(self, net, nid, ifc):
         super().__init__(net, nid, ifc)
+        self.stream_generator = None
         self.A = np.zeros(1)
         self.c = np.zeros(1)
         self.D = np.zeros(1)
         self.d = np.zeros(1)
         self.epoch = 0
+        self.counter = 0
         self.A_global = np.zeros(1)
         self.w_global = np.zeros(1)
         self.win = Window(size=const.SIZE, step=const.STEP,
                           points=const.POINTS)
 
+    def stream_generation(self, g):
+        self.stream_generator = g
+
     def new_stream(self, stream):
-        self.epoch = +1
+
         # update window
+
         try:
+            self.epoch += 1
+            self.counter += 1
+
             res = self.win.update(stream)
             new, old = next(res)
             self.update_state(new, old)
@@ -115,12 +133,13 @@ class Site(Sender):
         self.A_global = A_global
         self.w_global = w_global
         # update drift = 0
-        self.D = np.zeros(0)
-        self.d = np.zeros(0)
+        self.D = np.zeros(1)
+        self.d = np.zeros(1)
 
     def send_data(self):
         # send local state
-        self.send("sync", (self.A, self.c))
+        print("nid", self.nid, "counter", self.counter, "A", self.A)
+        self.send("sync", (self.A, self.c, self.counter))
         pass
 
 
@@ -166,13 +185,30 @@ def start_synthetic_simulation(seed, points, features, var):
     for i in range(points):
         y[i] = np.dot(x[i].transpose(), w) + b
 
-        # here we will update window
-        obs = [(x[i], y[i])]
+        tmp = np.array([np.append(x[i], [y[i]], axis=0)])
 
-        for site in net.sites.values():
-            site.new_stream(obs)
+        # save x,y observations
+        if i != 0:
+            obs = np.append(obs, tmp, axis=0)
+        else:
+            obs = tmp
+    # split input to k inputs
+    divided = np.split(obs, const.K, axis=0)
+
+    # FIXME: Problem with how i put the input in each node
+    print(divided[0].shape[0])
+    # share inputs to nodes and start simulation
+
+    for k in range(1690):
+        for j in range(const.K):
+            x_train = divided[j][k][0:features]
+            y_train = divided[j][k][features]
+
+            net.sites[j].new_stream([(x_train, y_train)])
 
 
 if __name__ == "__main__":
+    file = open("periodic.txt", "w")
     start_synthetic_simulation(const.SEED, const.POINTS, const.FEATURES,
                                const.VAR)
+    file.close()

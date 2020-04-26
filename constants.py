@@ -10,4 +10,4 @@ FEATURES = 10    # total number of features
 VAR = 1        # variance
 SEED = 2        # seed for random function
 SIZE = 1300       # size of the sliding window
-STEP = 100        # the window step
+STEP = 1         # the window step
