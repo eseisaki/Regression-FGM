@@ -2,16 +2,11 @@ from statistics import *
 import constants as const
 import numpy as np
 
+T = 100
 
-###############################################################################
-#
-#  Safe zone
-#
-###############################################################################
 
-# safe_zone = error* norm(dot(A_global,D)) + norm(dot(A_global,d)) +
-# + norm(dot(A_global,D,w_global))
-
+# FIXME: wrong output with K=1
+# TODO: why T=1 txt has garbage??
 ###############################################################################
 #
 #  Coordinator
@@ -22,22 +17,41 @@ class Coordinator(Sender):
     def __init__(self, net, nid, ifc):
         super().__init__(net, nid, ifc)
         self.A_global = np.zeros(1)
+        self.c_global = np.zeros(1)
         self.w_global = np.zeros(1)
+        self.counter = 0
 
     # -------------------------------------------------------------------------
     # REMOTE METHOD
+
+    def update_counter(self):
+        self.counter += 1
+
     def alert(self):
         self.send("send_data", None)
-        pass
 
-    def sync(self, D, d):
+    def sync(self, msg):
+        D, d = msg
         self.incoming_channels += 1
 
-        # TODO: update global estimate
+        # update global estimate
 
-        if self.incoming_channels >= const.K:
-            self.send("new_estimate", (self.A_global, self.w_global))
-            self.incoming_channels = 0
+        self.A_global = np.add(self.A_global, D/const.K)
+        self.c_global = np.add(self.c_global, d/const.K)
+
+        if self.incoming_channels == const.K:
+            # compute coefficients
+            if self.A_global != 0:
+                self.w_global = self.c_global * (1 / self.A_global)
+
+                w_train = np.append(self.w_global, [self.counter], axis=0)
+                w_train = np.array(w_train)
+                # save coefficients
+                np.savetxt(f1, [w_train], delimiter=' ', newline='\n')
+                # print("counter", self.counter, "\n w:", w_train)
+
+                self.incoming_channels = 0
+                self.send("new_estimate", (self.A_global, self.w_global))
 
 
 ###############################################################################
@@ -51,28 +65,48 @@ class Site(Sender):
         super().__init__(net, nid, ifc)
         self.A = np.zeros(1)
         self.c = np.zeros(1)
+        self.last_A = np.zeros(1)
+        self.last_c = np.zeros(1)
         self.D = np.zeros(1)
         self.d = np.zeros(1)
+        self.epoch = 0
+
         self.A_global = np.zeros(1)
         self.w_global = np.zeros(1)
         self.win = Window(size=const.SIZE, step=const.STEP,
                           points=const.POINTS)
 
     def new_stream(self, stream):
+
         # update window
+
         try:
+            self.epoch += 1
+
             res = self.win.update(stream)
             new, old = next(res)
-
             self.update_state(new, old)
-            self.update_drift(new, old)
+            # self.update_drift(new, old)
+            self.D = np.subtract(self.A, self.last_A)
+            self.d = np.subtract(self.c, self.last_c)
 
-            # if safe_zone is violated
-            #   call alert()
+            if self.A_global != 0:
+                A_in = 1 / self.A_global
+                norm = np.linalg.norm
+                print(const.ERROR * norm(A_in * self.D))
+
+                st = const.ERROR * norm(A_in * self.D) + norm(
+                    A_in * self.d) + norm((A_in * self.D) * self.w_global)
+
+                if st > const.ERROR:
+                    self.send("alert", None)
+            else:
+                self.send("alert", None)
         except StopIteration:
             pass
 
     def update_state(self, new, old):
+
         for x, y in new:
             ml1 = x.dot(x.transpose())
             self.A = np.add(self.A, ml1)
@@ -100,16 +134,17 @@ class Site(Sender):
 
     # -------------------------------------------------------------------------
     # REMOTE METHOD
-    def new_estimate(self, A_global, w_global):
+    def new_estimate(self, msg):
+        A_global, w_global = msg
         # save received global estimate
         self.A_global = A_global
         self.w_global = w_global
         # update drift = 0
-        self.D = np.zeros(0)
-        self.d = np.zeros(0)
+        self.last_A = self.A
+        self.last_c = self.c
 
     def send_data(self):
-        # send drifts
+        # send local state
         self.send("sync", (self.D, self.d))
         pass
 
@@ -139,20 +174,28 @@ def configure_system():
     return n
 
 
-def start_synthetic_simulation(seed, points, features, var):
-    np.random.seed(seed)
+def start_synthetic_simulation():
+    net = configure_system()
 
-    x = np.random.normal(loc=0, scale=1, size=(points, features))
-    x[0, 0] = 1
-    # this w is the true coefficients
-    w = np.random.normal(loc=0, scale=1, size=features)
+    f2 = open("tests/synthetic.txt", "r")
+    lines = f2.readlines()
 
-    # noise to differentiate train data
-    b = np.random.normal(loc=0, scale=var * var, size=1)
-    y = np.zeros(points)
-    for i in range(points):
-        y[i] = np.dot(x[i].transpose(), w) + b
+    j = 0
+    for line in lines:
+        if j == const.K:
+            j = 0
+        tmp = np.fromstring(line, dtype=float, sep=' ')
+        x_train = tmp[0:const.FEATURES]
+        y_train = tmp[const.FEATURES]
 
-        # here we will update window
-        obs = [x[i], y[i]]
-        print('observation', obs)
+        net.coord.update_counter()
+        net.sites[j].new_stream([(x_train, y_train)])
+        j += 1
+
+    f2.close()
+
+
+if __name__ == "__main__":
+    f1 = open("tests/gm.txt", "w")
+    start_synthetic_simulation()
+    f1.close()

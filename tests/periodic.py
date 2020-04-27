@@ -5,6 +5,8 @@ import numpy as np
 T = 100
 
 
+# FIXME: wrong output with K=1
+# TODO: why T=1 txt has garbage??
 ###############################################################################
 #
 #  Coordinator
@@ -21,37 +23,35 @@ class Coordinator(Sender):
 
     # -------------------------------------------------------------------------
     # REMOTE METHOD
+
+    def update_counter(self):
+        self.counter += 1
+
     def alert(self):
         self.send("send_data", None)
-        pass
 
     def sync(self, msg):
-        A, c, counter = msg
+        D, d = msg
         self.incoming_channels += 1
 
         # update global estimate
-        self.A_global = np.add(self.A_global, A)
-        self.c_global = np.add(self.c_global, c)
-        self.counter += counter
-        if self.incoming_channels == const.K:
-            # get the average
-            self.A_global = self.A_global / const.K
-            self.c_global = self.c_global / const.K
 
+        self.A_global = np.add(self.A_global, D/const.K)
+        self.c_global = np.add(self.c_global, d/const.K)
+
+        if self.incoming_channels == const.K:
             # compute coefficients
             if self.A_global != 0:
                 self.w_global = self.c_global * (1 / self.A_global)
 
-            self.incoming_channels = 0
+                w_train = np.append(self.w_global, [self.counter], axis=0)
+                w_train = np.array(w_train)
+                # save coefficients
+                np.savetxt(f1, [w_train], delimiter=' ', newline='\n')
+                # print("counter", self.counter, "\n w:", w_train)
 
-            # save coefficients
-            # print(self.counter)
-            w_train = np.append(self.w_global, [self.counter], axis=0)
-            w_train = np.array(w_train)
-            np.savetxt(file, [w_train], delimiter=' ', newline='\n')
-            # print("counter", counter, "\n w:", w_train)
-            self.counter = 0
-            self.send("new_estimate", (self.A_global, self.w_global))
+                self.incoming_channels = 0
+                self.send("new_estimate", (self.A_global, self.w_global))
 
 
 ###############################################################################
@@ -63,20 +63,18 @@ class Coordinator(Sender):
 class Site(Sender):
     def __init__(self, net, nid, ifc):
         super().__init__(net, nid, ifc)
-        self.stream_generator = None
         self.A = np.zeros(1)
         self.c = np.zeros(1)
+        self.last_A = np.zeros(1)
+        self.last_c = np.zeros(1)
         self.D = np.zeros(1)
         self.d = np.zeros(1)
         self.epoch = 0
-        self.counter = 0
+
         self.A_global = np.zeros(1)
         self.w_global = np.zeros(1)
         self.win = Window(size=const.SIZE, step=const.STEP,
                           points=const.POINTS)
-
-    def stream_generation(self, g):
-        self.stream_generator = g
 
     def new_stream(self, stream):
 
@@ -84,17 +82,21 @@ class Site(Sender):
 
         try:
             self.epoch += 1
-            self.counter += 1
 
             res = self.win.update(stream)
             new, old = next(res)
             self.update_state(new, old)
-            self.update_drift(new, old)
+            # self.update_drift(new, old)
+            self.D = np.subtract(self.A, self.last_A)
+            self.d = np.subtract(self.c, self.last_c)
 
-            if self.epoch == T:
-                self.epoch = 0
+            if self.A_global == 0:
                 self.send("alert", None)
+                self.epoch = 0
 
+            if self.nid == const.K - 1 and self.epoch == T/const.K:
+                self.send("alert", None)
+                self.epoch = 0
         except StopIteration:
             pass
 
@@ -133,13 +135,12 @@ class Site(Sender):
         self.A_global = A_global
         self.w_global = w_global
         # update drift = 0
-        self.D = np.zeros(1)
-        self.d = np.zeros(1)
+        self.last_A = self.A
+        self.last_c = self.c
 
     def send_data(self):
         # send local state
-        print("nid", self.nid, "counter", self.counter, "A", self.A)
-        self.send("sync", (self.A, self.c, self.counter))
+        self.send("sync", (self.D, self.d))
         pass
 
 
@@ -168,47 +169,28 @@ def configure_system():
     return n
 
 
-def start_synthetic_simulation(seed, points, features, var):
+def start_synthetic_simulation():
     net = configure_system()
 
-    np.random.seed(seed)
+    f2 = open("synthetic.txt", "r")
+    lines = f2.readlines()
 
-    x = np.random.normal(loc=0, scale=1, size=(points, features))
-    x[0, 0] = 1
-    # this w is the true coefficients
-    w = np.random.normal(loc=0, scale=1, size=features)
+    j = 0
+    for line in lines:
+        if j == const.K:
+            j = 0
+        tmp = np.fromstring(line, dtype=float, sep=' ')
+        x_train = tmp[0:const.FEATURES]
+        y_train = tmp[const.FEATURES]
 
-    # noise to differentiate train data
-    b = np.random.normal(loc=0, scale=var * var, size=1)
-    y = np.zeros(points)
+        net.coord.update_counter()
+        net.sites[j].new_stream([(x_train, y_train)])
+        j += 1
 
-    for i in range(points):
-        y[i] = np.dot(x[i].transpose(), w) + b
-
-        tmp = np.array([np.append(x[i], [y[i]], axis=0)])
-
-        # save x,y observations
-        if i != 0:
-            obs = np.append(obs, tmp, axis=0)
-        else:
-            obs = tmp
-    # split input to k inputs
-    divided = np.split(obs, const.K, axis=0)
-
-    # FIXME: Problem with how i put the input in each node
-    print(divided[0].shape[0])
-    # share inputs to nodes and start simulation
-
-    for k in range(1690):
-        for j in range(const.K):
-            x_train = divided[j][k][0:features]
-            y_train = divided[j][k][features]
-
-            net.sites[j].new_stream([(x_train, y_train)])
+    f2.close()
 
 
 if __name__ == "__main__":
-    file = open("periodic.txt", "w")
-    start_synthetic_simulation(const.SEED, const.POINTS, const.FEATURES,
-                               const.VAR)
-    file.close()
+    f1 = open("periodic.txt", "w")
+    start_synthetic_simulation()
+    f1.close()

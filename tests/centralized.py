@@ -4,41 +4,62 @@ from statistics import *
 import constants as const
 import numpy as np
 
+
+def create_dataset(seed, points, features, var):
+    np.random.seed(seed)
+
+    x = np.random.normal(loc=0, scale=1, size=(points, features))
+    x[0, 0] = 1
+    # this w is the true coefficients
+    w = np.random.normal(loc=0, scale=1, size=features)
+
+    # noise to differentiate train data
+    b = np.random.normal(loc=0, scale=var * var, size=1)
+    y = np.zeros(points)
+
+    f = open("synthetic.txt", "w")
+
+    for i in range(points):
+        y[i] = np.dot(x[i].transpose(), w) + b
+
+        tmp = np.array([np.append(x[i], [y[i]], axis=0)])
+
+        # save x,y observations
+        if i != 0:
+            obs = np.append(obs, tmp, axis=0)
+        else:
+            obs = tmp
+
+    np.savetxt(f, obs, delimiter=' ', newline='\n')
+
+    f.close()
+
+
 if __name__ == "__main__":
-    seed = const.SEED
-    points = const.POINTS
-    features = const.FEATURES
-    var = const.VAR
     epoch = 0
     counter = 0
 
-    win = Window(step=const.STEP, size=const.SIZE, points=const.POINTS)
+    # create_dataset(const.SEED, const.POINTS, const.FEATURES, const.VAR)
+
+    win = Window(step=const.STEP, size=const.K * const.SIZE,
+                 points=const.POINTS)
     A = np.zeros(1)
     c = np.zeros(1)
     w = np.zeros(1)
 
-    np.random.seed(seed)
+    f1 = open("synthetic.txt", "r")
+    f2 = open("centralized.txt", "w")
+    lines = f1.readlines()
 
-    x_train = np.random.normal(loc=0, scale=1, size=(points, features))
-    x_train[0, 0] = 1
-    # this w is the true coefficients
-    w_true = np.random.normal(loc=0, scale=1, size=features)
+    for line in lines:
+        myarray = np.fromstring(line, dtype=float, sep=' ')
+        x_train = myarray[0:const.FEATURES]
+        y_train = myarray[const.FEATURES]
 
-    # noise to differentiate train data
-    b = np.random.normal(loc=0, scale=var * var, size=1)
-    y_train = np.zeros(points)
-
-    file = open("centralized.txt", "w")
-
-    for i in range(points):
-        y_train[i] = np.dot(x_train[i].transpose(), w_true) + b
-
-        # here we will update window
-        obs = [(x_train[i], y_train[i])]
+        obs = [(x_train, y_train)]
 
         # update window
         try:
-            epoch += 1
             counter += 1
 
             res = win.update(obs)
@@ -60,18 +81,15 @@ if __name__ == "__main__":
             # compute coefficients
             if A != 0:
                 w_train = c * (1 / A)
-                w_train = np.array(w_train)
                 w_train = np.append(w_train, [counter], axis=0)
+                w_train = np.array(w_train)
                 # print(w_train)
 
-            # save coefficients
-            np.savetxt(file, [w_train], delimiter=' ', newline='\n')
+                # save coefficients
+                np.savetxt(f2, [w_train], delimiter=' ', newline='\n')
 
         except StopIteration:
             pass
 
-    file.close()
-
-    # original_array = np.loadtxt("centralized.txt").reshape(points,
-    # features + 1)
-    # print(original_array)
+    f1.close()
+    f2.close()
