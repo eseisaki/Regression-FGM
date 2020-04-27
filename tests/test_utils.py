@@ -11,8 +11,8 @@ def test_window():
         try:
             res = win.update([(np.array([i, i]), i)])
             new, old = next(res)
-            #print("new:", new)
-            #print("old:", old)
+            # print("new:", new)
+            # print("old:", old)
             assert len(new) == 2
         except StopIteration:
             pass

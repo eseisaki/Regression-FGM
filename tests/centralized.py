@@ -1,5 +1,3 @@
-from sklearn import linear_model
-import matplotlib.pyplot as plt
 from statistics import *
 import constants as const
 import numpy as np

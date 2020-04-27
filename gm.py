@@ -2,11 +2,7 @@ from statistics import *
 import constants as const
 import numpy as np
 
-T = 100
 
-
-# FIXME: wrong output with K=1
-# TODO: why T=1 txt has garbage??
 ###############################################################################
 #
 #  Coordinator
@@ -36,8 +32,8 @@ class Coordinator(Sender):
 
         # update global estimate
 
-        self.A_global = np.add(self.A_global, D/const.K)
-        self.c_global = np.add(self.c_global, d/const.K)
+        self.A_global = np.add(self.A_global, D / const.K)
+        self.c_global = np.add(self.c_global, d / const.K)
 
         if self.incoming_channels == const.K:
             # compute coefficients
