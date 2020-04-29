@@ -77,8 +77,6 @@ class Site(Sender):
         # update window
 
         try:
-            self.epoch += 1
-
             res = self.win.update(stream)
             new, old = next(res)
             self.update_state(new, old)
@@ -89,7 +87,6 @@ class Site(Sender):
             if self.A_global != 0:
                 A_in = 1 / self.A_global
                 norm = np.linalg.norm
-                print(const.ERROR * norm(A_in * self.D))
 
                 st = const.ERROR * norm(A_in * self.D) + norm(
                     A_in * self.d) + norm((A_in * self.D) * self.w_global)
@@ -142,7 +139,6 @@ class Site(Sender):
     def send_data(self):
         # send local state
         self.send("sync", (self.D, self.d))
-        pass
 
 
 ###############################################################################
