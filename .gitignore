@@ -2,7 +2,10 @@
 /__pycache__/
 /push.ps1
 /tests/__pycache__/
-/tests/centralized.txt
-/tests/periodic.txt
-/tests/synthetic.txt
-/tests/gm.txt
+/tests/centralized.csv
+/tests/centralized_sgd.csv
+/tests/periodic.csv
+/tests/synthetic.csv
+/tests/gm.csv
+/tests/synthetic_test.csv
+/tests/exper.py

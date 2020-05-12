@@ -1,90 +1,96 @@
 from statistics import *
 import constants as const
 import numpy as np
+from sklearn import datasets
 
 
-def create_dataset(seed, points, features, var):
-    np.random.seed(seed)
+def create_dataset(points, features, noise, bias):
+    # create training dataset for linear regression
+    # the input set is well conditioned, centered and gaussian with unit
+    # variance
+    X, Y, coef = datasets.make_regression(n_samples=points,
+                                          n_features=features,
+                                          n_informative=features,
+                                          bias=bias,
+                                          coef=True,
+                                          noise=noise)
+    inter = np.ones((X.shape[0], 1))
+    X = np.c_[inter, X]
+    Y = Y.reshape(-1, 1)
 
-    x = np.random.normal(loc=0, scale=1, size=(points, features))
-    x[0, 0] = 1
-    # this w is the true coefficients
-    w = np.random.normal(loc=0, scale=1, size=features)
+    dataset = np.append(X, Y, axis=1)
 
-    # noise to differentiate train data
-    b = np.random.normal(loc=0, scale=var * var, size=1)
-    y = np.zeros(points)
+    # load dataset to csv file
+    f = open("synthetic.csv", "w")
+    np.savetxt(f, dataset, delimiter=',', newline='\n')
+    f.close()
 
-    f = open("synthetic.txt", "w")
+    test_size = int(points*0.2)
 
-    for i in range(points):
-        y[i] = np.dot(x[i].transpose(), w) + b
+    X, Y, coef = datasets.make_regression(n_samples=test_size,
+                                          n_features=features,
+                                          n_informative=features,
+                                          bias=bias,
+                                          coef=True,
+                                          noise=noise)
+    inter = np.ones((X.shape[0], 1))
+    X = np.c_[inter, X]
+    Y = Y.reshape(-1, 1)
 
-        tmp = np.array([np.append(x[i], [y[i]], axis=0)])
+    dataset = np.append(X, Y, axis=1)
 
-        # save x,y observations
-        if i != 0:
-            obs = np.append(obs, tmp, axis=0)
-        else:
-            obs = tmp
-
-    np.savetxt(f, obs, delimiter=' ', newline='\n')
-
+    # load dataset to csv file
+    f = open("synthetic_test.csv", "w")
+    np.savetxt(f, dataset, delimiter=',', newline='\n')
     f.close()
 
 
+
 if __name__ == "__main__":
-    epoch = 0
     counter = 0
 
-    # create_dataset(const.SEED, const.POINTS, const.FEATURES, const.VAR)
+    create_dataset(const.POINTS, const.FEATURES, const.VAR, const.BIAS)
 
-    win = Window(step=const.STEP, size=const.K * const.SIZE,
-                 points=const.POINTS)
-    A = np.zeros(1)
-    c = np.zeros(1)
-    w = np.zeros(1)
+    win = Window2(step=const.STEP, size=const.K * const.SIZE,
+                  points=const.POINTS)
 
-    f1 = open("synthetic.txt", "r")
-    f2 = open("centralized.txt", "w")
+    f1 = open("synthetic.csv", "r")
+    f2 = open("centralized.csv", "w")
+
     lines = f1.readlines()
-
     for line in lines:
-        myarray = np.fromstring(line, dtype=float, sep=' ')
-        x_train = myarray[0:const.FEATURES]
-        y_train = myarray[const.FEATURES]
+
+        myarray = np.fromstring(line, dtype=float, sep=',')
+        x_train = myarray[0:const.FEATURES + 1]
+        y_train = myarray[const.FEATURES + 1]
 
         obs = [(x_train, y_train)]
 
+        A = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
+        c = np.zeros((const.FEATURES + 1, 1))
         # update window
         try:
             counter += 1
 
             res = win.update(obs)
-            new, old = next(res)
+            batch = next(res)
 
             # update state
-            for x, y in new:
-                ml1 = x.dot(x.transpose())
+            for x, y in batch:
+                x = x.reshape(-1, 1)
+                ml1 = x.dot(x.T)
                 A = np.add(A, ml1)
-                ml2 = x.transpose() * y
+                ml2 = x.dot(y)
                 c = np.add(c, ml2)
 
-            for x, y in old:
-                ml1 = x.dot(x.transpose())
-                A = np.subtract(A, ml1)
-                ml2 = x.transpose() * y
-                c = np.subtract(c, ml2)
-
             # compute coefficients
-            if A != 0:
-                w_train = c * (1 / A)
-                w_train = np.append(w_train, [counter], axis=0)
-                w_train = np.array(w_train)
-                # print(w_train)
+            w = np.linalg.inv(A).dot(c)
+            w = w.reshape(1, -1)
 
-                # save coefficients
-                np.savetxt(f2, [w_train], delimiter=' ', newline='\n')
+            w_train = np.insert(w, w.shape[1], counter, axis=1)
+
+            # save coefficients
+            np.savetxt(f2, w_train, delimiter=',', newline='\n')
 
         except StopIteration:
             pass

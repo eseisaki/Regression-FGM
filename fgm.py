@@ -94,7 +94,7 @@ class Coordinator(Sender):
 class Site(Sender):
     def __init__(self, net, nid, ifc):
         super().__init__(net, nid, ifc)
-        self.w = const.ZERO
+        self.w = None
         self.d = const.ZERO
         self.last_w = const.ZERO
         self.w_global = const.ZERO
@@ -137,18 +137,19 @@ class Site(Sender):
         x_train = np.delete(x_train, 0, axis=0)
         y_train = np.delete(y_train, 0, axis=0)
 
-        if self.w.all() != 0:
-            self.reg.fit(x_train, y_train, coef_init=self.w)
+        if self.w is None:
+            self.reg.partial_fit(x_train, y_train)
             self.w = np.array([self.reg.coef_])
 
         else:
-            self.reg.fit(x_train, y_train)
+            self.reg.partial_fit(x_train, y_train)
             self.w = self.reg.coef_
 
     def update_drift(self):
         self.d = np.subtract(self.w, self.last_w)
 
     def subround_process(self):
+        # print(self.c)
         a = (phi(self.d, self.w_global))
         count_i = np.floor((a - self.zeta) / self.quantum)
 
@@ -230,6 +231,6 @@ def start_synthetic_simulation():
 
 
 if __name__ == "__main__":
-    f1 = open("tests/gm.txt", "w")
+    f1 = open("tests/fgm.txt", "w")
     start_synthetic_simulation()
     f1.close()

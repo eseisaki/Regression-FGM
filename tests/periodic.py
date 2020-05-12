@@ -2,11 +2,9 @@ from statistics import *
 import constants as const
 import numpy as np
 
-T = 100
+T = 1
 
 
-# FIXME: wrong output with K=1
-# TODO: why T=1 txt has garbage??
 ###############################################################################
 #
 #  Coordinator
@@ -16,9 +14,9 @@ T = 100
 class Coordinator(Sender):
     def __init__(self, net, nid, ifc):
         super().__init__(net, nid, ifc)
-        self.A_global = np.zeros(1)
-        self.c_global = np.zeros(1)
-        self.w_global = np.zeros(1)
+        self.A_global = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
+        self.c_global = np.zeros((const.FEATURES + 1, 1))
+        self.w_global = None
         self.counter = 0
 
     # -------------------------------------------------------------------------
@@ -36,22 +34,20 @@ class Coordinator(Sender):
 
         # update global estimate
 
-        self.A_global = np.add(self.A_global, D/const.K)
-        self.c_global = np.add(self.c_global, d/const.K)
+        self.A_global = np.add(self.A_global, D / const.K)
+        self.c_global = np.add(self.c_global, d / const.K)
 
         if self.incoming_channels == const.K:
             # compute coefficients
-            if self.A_global != 0:
-                self.w_global = self.c_global * (1 / self.A_global)
+            self.w_global = np.linalg.inv(self.A_global).dot(self.c_global)
+            w_train = self.w_global.reshape(1, -1)
+            w_train = np.insert(w_train, w_train.shape[1], self.counter,
+                                axis=1)
+            # save coefficients
+            np.savetxt(f1, w_train, delimiter=',', newline='\n')
 
-                w_train = np.append(self.w_global, [self.counter], axis=0)
-                w_train = np.array(w_train)
-                # save coefficients
-                np.savetxt(f1, [w_train], delimiter=' ', newline='\n')
-                # print("counter", self.counter, "\n w:", w_train)
-
-                self.incoming_channels = 0
-                self.send("new_estimate", (self.A_global, self.w_global))
+            self.incoming_channels = 0
+            self.send("new_estimate", (self.A_global, self.w_global))
 
 
 ###############################################################################
@@ -63,69 +59,53 @@ class Coordinator(Sender):
 class Site(Sender):
     def __init__(self, net, nid, ifc):
         super().__init__(net, nid, ifc)
-        self.A = np.zeros(1)
-        self.c = np.zeros(1)
-        self.last_A = np.zeros(1)
-        self.last_c = np.zeros(1)
-        self.D = np.zeros(1)
-        self.d = np.zeros(1)
+        self.A = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
+        self.c = np.zeros((const.FEATURES + 1, 1))
+        self.last_A = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
+        self.last_c = np.zeros((const.FEATURES + 1, 1))
+        self.D = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
+        self.d = np.zeros((const.FEATURES + 1, 1))
         self.epoch = 0
 
-        self.A_global = np.zeros(1)
-        self.w_global = np.zeros(1)
-        self.win = Window(size=const.SIZE, step=const.STEP,
-                          points=const.POINTS)
+        self.A_global = None
+        self.w_global = None
+        self.win = Window2(size=const.SIZE, step=const.STEP,
+                           points=const.POINTS)
 
     def new_stream(self, stream):
 
+        self.A = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
+        self.c = np.zeros((const.FEATURES + 1, 1))
         # update window
-
         try:
             self.epoch += 1
-
             res = self.win.update(stream)
-            new, old = next(res)
-            self.update_state(new, old)
-            # self.update_drift(new, old)
+            batch = next(res)
+
+            # update state
+            self.update_state(batch)
+            # update drift
             self.D = np.subtract(self.A, self.last_A)
             self.d = np.subtract(self.c, self.last_c)
 
-            if self.A_global == 0:
+            if self.A_global is None:
                 self.send("alert", None)
                 self.epoch = 0
 
-            if self.nid == const.K - 1 and self.epoch == T/const.K:
+            if self.nid == const.K - 1 and self.epoch >= T / const.K:
                 self.send("alert", None)
                 self.epoch = 0
         except StopIteration:
             pass
 
-    def update_state(self, new, old):
+    def update_state(self, b):
 
-        for x, y in new:
-            ml1 = x.dot(x.transpose())
+        for x, y in b:
+            x = x.reshape(-1, 1)
+            ml1 = x.dot(x.T)
             self.A = np.add(self.A, ml1)
-            ml2 = x.transpose() * y
+            ml2 = x.dot(y)
             self.c = np.add(self.c, ml2)
-
-        for x, y in old:
-            ml1 = x.dot(x.transpose())
-            self.A = np.subtract(self.A, ml1)
-            ml2 = x.transpose() * y
-            self.c = np.subtract(self.c, ml2)
-
-    def update_drift(self, new, old):
-        for x, y in new:
-            ml1 = x.dot(x.transpose())
-            self.D = np.add(self.D, ml1)
-            ml2 = x.transpose() * y
-            self.d = np.add(self.d, ml2)
-
-        for x, y in old:
-            ml1 = x.dot(x.transpose())
-            self.D = np.subtract(self.D, ml1)
-            ml2 = x.transpose() * y
-            self.d = np.subtract(self.d, ml2)
 
     # -------------------------------------------------------------------------
     # REMOTE METHOD
@@ -172,16 +152,16 @@ def configure_system():
 def start_synthetic_simulation():
     net = configure_system()
 
-    f2 = open("synthetic.txt", "r")
+    f2 = open("synthetic.csv", "r")
     lines = f2.readlines()
 
     j = 0
     for line in lines:
         if j == const.K:
             j = 0
-        tmp = np.fromstring(line, dtype=float, sep=' ')
-        x_train = tmp[0:const.FEATURES]
-        y_train = tmp[const.FEATURES]
+        tmp = np.fromstring(line, dtype=float, sep=',')
+        x_train = tmp[0:const.FEATURES + 1]
+        y_train = tmp[const.FEATURES + 1]
 
         net.coord.update_counter()
         net.sites[j].new_stream([(x_train, y_train)])
@@ -191,6 +171,6 @@ def start_synthetic_simulation():
 
 
 if __name__ == "__main__":
-    f1 = open("periodic.txt", "w")
+    f1 = open("periodic.csv", "w")
     start_synthetic_simulation()
     f1.close()
