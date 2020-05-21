@@ -2,6 +2,67 @@ from statistics import *
 import constants as const
 import numpy as np
 from sklearn import datasets
+import time
+
+
+def create_fixed_dataset(points, features, noise):
+    f = open("fixed_set.csv", "w")
+
+    # here w_true is fixed
+    # w0 is included
+    # w_true shape--> (features+1,1)
+    w_true = np.array(
+        [np.random.normal(loc=0.0, scale=1.0, size=features + 1)])
+    w_true = w_true.reshape(-1, 1)
+    n = np.random.normal(loc=0.0, scale=noise * noise)
+    # print("w_true", w_true)
+    # print("noise", n)
+    # print("------------")
+
+    for i in range(points):
+        # x--> (1,features)
+        X = np.array([np.random.normal(loc=0.0, scale=1.0, size=features)])
+        # x_b includes bias
+        # x_b--> (1,features+1)
+        x_b = np.insert(X, 0, 1, axis=1)
+
+        Y = x_b.dot(w_true) + n
+        pair = np.column_stack((x_b, Y))
+        np.savetxt(f, pair, delimiter=',', newline='\n')
+
+    f.close()
+
+
+def create_drift_dataset(epoch, points, features, noise):
+    f = open("drift_set.csv", "w")
+    # here w_true is fixed
+    # w0 is included
+    # w_true shape--> (features+1,1)
+    w_fixed = np.array(
+        [np.random.normal(loc=0.0, scale=1.0, size=features + 1)])
+    w_fixed = w_fixed.reshape(-1, 1)
+    n = np.random.normal(loc=0.0, scale=noise * noise)
+    for e in range(epoch):
+        for i in range(points):
+            # for 25% of epoch w_true changes in every round
+            if i <= points * 0.25:
+                w_true = np.array(
+                    [np.random.normal(loc=0.0, scale=1.0, size=features + 1)])
+                w_true = w_true.reshape(-1, 1)
+            else:
+                w_true = w_fixed
+
+            # x--> (1,features)
+            X = np.array([np.random.normal(loc=0.0, scale=1.0, size=features)])
+            # x_b includes bias
+            # x_b--> (1,features+1)
+            x_b = np.insert(X, 0, 1, axis=1)
+
+            Y = x_b.dot(w_true) + n
+            pair = np.column_stack((x_b, Y))
+            np.savetxt(f, pair, delimiter=',', newline='\n')
+
+    f.close()
 
 
 def create_dataset(points, features, noise, bias):
@@ -25,7 +86,7 @@ def create_dataset(points, features, noise, bias):
     np.savetxt(f, dataset, delimiter=',', newline='\n')
     f.close()
 
-    test_size = int(points*0.2)
+    test_size = int(points * 0.2)
 
     X, Y, coef = datasets.make_regression(n_samples=test_size,
                                           n_features=features,
@@ -45,17 +106,23 @@ def create_dataset(points, features, noise, bias):
     f.close()
 
 
-
 if __name__ == "__main__":
+
+    start_time = time.time()
+
     counter = 0
 
-    create_dataset(const.POINTS, const.FEATURES, const.VAR, const.BIAS)
+    # create_drift_dataset(const.EPOCH, const.POINTS, const.FEATURES,
+    # const.VAR)
 
     win = Window2(step=const.STEP, size=const.K * const.SIZE,
-                  points=const.POINTS)
+                  points=const.POINTS * const.EPOCH)
 
-    f1 = open("synthetic.csv", "r")
+    f1 = open("drift_set.csv", "r")
     f2 = open("centralized.csv", "w")
+
+    A = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
+    c = np.zeros((const.FEATURES + 1, 1))
 
     lines = f1.readlines()
     for line in lines:
@@ -63,15 +130,11 @@ if __name__ == "__main__":
         myarray = np.fromstring(line, dtype=float, sep=',')
         x_train = myarray[0:const.FEATURES + 1]
         y_train = myarray[const.FEATURES + 1]
-
         obs = [(x_train, y_train)]
 
-        A = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
-        c = np.zeros((const.FEATURES + 1, 1))
+        counter += 1
         # update window
         try:
-            counter += 1
-
             res = win.update(obs)
             batch = next(res)
 
@@ -86,14 +149,19 @@ if __name__ == "__main__":
             # compute coefficients
             w = np.linalg.inv(A).dot(c)
             w = w.reshape(1, -1)
-
+            # print(w)
             w_train = np.insert(w, w.shape[1], counter, axis=1)
 
             # save coefficients
             np.savetxt(f2, w_train, delimiter=',', newline='\n')
+
+            A = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
+            c = np.zeros((const.FEATURES + 1, 1))
 
         except StopIteration:
             pass
 
     f1.close()
     f2.close()
+
+    print("--- %s seconds ---" % (time.time() - start_time))

@@ -29,7 +29,7 @@ def phi(x, E):
 class Coordinator(Sender):
     def __init__(self, net, nid, ifc):
         super().__init__(net, nid, ifc)
-        self.w_global = np.zeros((1, const.FEATURES))
+        self.w_global = np.zeros((const.FEATURES + 1, 1))
         self.c = 0
         self.psi = 0
         self.quantum = 0
@@ -66,22 +66,20 @@ class Coordinator(Sender):
                 print("send theta")
                 self.incoming_channels = 0
 
-    def handle_drifts(self, w):
+    def handle_drifts(self, d):
         self.incoming_channels += 1
 
-        self.w_global = np.add(self.w_global, w / const.K)
+        self.w_global = np.add(self.w_global, d / const.K)
 
         # wait for every node to send drift
         if self.incoming_channels == const.K:
-            print("sync", self.w_global)
-            # w_train = np.append(self.w_global, [self.counter], axis=0)
-            # w_train = np.array(w_train)
+            w_train = self.w_global.reshape(1, -1)
+            w_train = np.insert(w_train, w_train.shape[1], self.counter,
+                                axis=1)
             # save coefficients
-            # np.savetxt(f1, [w_train], delimiter=' ', newline='\n')
-            # print("counter", self.counter, "\n w:", w_train)
+            np.savetxt(f1, w_train, delimiter=',', newline='\n')
 
             self.incoming_channels = 0
-
             self.send("begin_round", self.w_global)
 
 
@@ -94,10 +92,10 @@ class Coordinator(Sender):
 class Site(Sender):
     def __init__(self, net, nid, ifc):
         super().__init__(net, nid, ifc)
-        self.w = None
-        self.d = const.ZERO
-        self.last_w = const.ZERO
-        self.w_global = const.ZERO
+        self.w = np.zeros((const.FEATURES + 1, 1))
+        self.d = np.zeros((const.FEATURES + 1, 1))
+        self.last_w = np.zeros((const.FEATURES + 1, 1))
+        self.w_global = None
         self.quantum = 0
         self.c = 0
         self.increment = 0
@@ -116,20 +114,21 @@ class Site(Sender):
         try:
             res = self.win.update(stream)
             batch = next(res)
+            # update state
             self.update_state(batch)
-            self.update_drift()
+            # update drift
+            self.d = np.subtract(self.w, self.last_w)
 
-            if self.warm_up == 1:
-                self.subround_process()
-            else:
-                self.warm_up = 1
+            if self.w_global is None:
                 self.send_drift()
+
+            self.subround_process()
 
         except StopIteration:
             pass
 
     def update_state(self, batch):
-        x_train = np.zeros((1, const.FEATURES))
+        x_train = np.zeros((1, const.FEATURES + 1))
         y_train = np.zeros(1)
         for x, y in batch:
             x_train = np.concatenate((x_train, [x]))
@@ -137,26 +136,19 @@ class Site(Sender):
         x_train = np.delete(x_train, 0, axis=0)
         y_train = np.delete(y_train, 0, axis=0)
 
-        if self.w is None:
-            self.reg.partial_fit(x_train, y_train)
-            self.w = np.array([self.reg.coef_])
-
-        else:
-            self.reg.partial_fit(x_train, y_train)
-            self.w = self.reg.coef_
-
-    def update_drift(self):
-        self.d = np.subtract(self.w, self.last_w)
+        self.reg.partial_fit(x_train, y_train)
+        self.w = np.array([self.reg.coef_])
+        self.w = self.w.reshape(-1, 1)
 
     def subround_process(self):
-        # print(self.c)
+
         a = (phi(self.d, self.w_global))
         count_i = np.floor((a - self.zeta) / self.quantum)
 
         if count_i > self.c:
             self.increment = count_i - self.c
             self.c = count_i
-
+            print("c:", count_i)
             self.send("handle_increment", self.increment)
         return count_i
 
@@ -164,9 +156,11 @@ class Site(Sender):
     # REMOTE METHOD
     def begin_round(self, w):
         self.w_global = w
-        self.quantum = - phi(const.ZERO, self.w_global) / 2
+
+        self.quantum = - phi(np.zeros((const.FEATURES + 1, 1)),
+                             self.w_global) / 2
         self.c = 0
-        self.last_zeta = phi(const.ZERO, self.w_global)
+        self.last_zeta = phi(np.zeros((const.FEATURES + 1, 1)), self.w_global)
 
     def begin_subround(self, theta):
         self.c = 0
@@ -212,16 +206,16 @@ def configure_system():
 def start_synthetic_simulation():
     net = configure_system()
 
-    f2 = open("tests/synthetic.txt", "r")
+    f2 = open("tests/synthetic.csv", "r")
     lines = f2.readlines()
 
     j = 0
     for line in lines:
         if j == const.K:
             j = 0
-        tmp = np.fromstring(line, dtype=float, sep=' ')
-        x_train = tmp[0:const.FEATURES]
-        y_train = tmp[const.FEATURES]
+        tmp = np.fromstring(line, dtype=float, sep=',')
+        x_train = tmp[0:const.FEATURES + 1]
+        y_train = tmp[const.FEATURES + 1]
 
         net.coord.update_counter()
         net.sites[j].new_stream([(x_train, y_train)])
@@ -231,6 +225,6 @@ def start_synthetic_simulation():
 
 
 if __name__ == "__main__":
-    f1 = open("tests/fgm.txt", "w")
+    f1 = open("tests/fgm.csv", "w")
     start_synthetic_simulation()
     f1.close()

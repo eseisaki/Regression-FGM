@@ -6,14 +6,12 @@ import numpy as np
 #
 ###############################################################################
 K = 10  # no of nodes
-ERROR = 0.6 # gm error rate
-POINTS = 2000  # total number of observations
+ERROR = 1.5  # gm error rate
+EPOCH = 2
+POINTS = 2500  # total number of observations
 FEATURES = 10  # total number of features
-VAR = 1  # variance
+VAR = 2  # variance
 SEED = 2  # seed for random function
-SIZE = 100  # size of the sliding window (actual size of window is SIZE*K)
+SIZE = 150  # size of the sliding window (actual size of window is SIZE*K)
 STEP = 10  # the window step
 BIAS = 1.0  # the bias to create synthetic dataset
-
-ZERO = np.zeros((1, FEATURES))
-

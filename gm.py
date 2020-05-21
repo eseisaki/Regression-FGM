@@ -1,6 +1,8 @@
 from statistics import *
 import constants as const
 import numpy as np
+import time
+from colorama import Fore, Back, Style
 
 
 ###############################################################################
@@ -16,22 +18,32 @@ class Coordinator(Sender):
         self.c_global = np.zeros((const.FEATURES + 1, 1))
         self.w_global = None
         self.counter = 0
-
-    # -------------------------------------------------------------------------
-    # REMOTE METHOD
+        self.sub_counter = -10*const.K
 
     def update_counter(self):
         self.counter += 1
 
+    # -------------------------------------------------------------------------
+    # REMOTE METHOD
+
     def alert(self):
-        self.send("send_data", None)
+        if self.sub_counter <= self.counter < self.sub_counter + const.K:
+            print(Fore.RED + "Coordinator ignores this alert",
+                  Style.RESET_ALL)
+        else:
+            self.sub_counter = self.counter
+            print(self.sub_counter)
+            print(Back.RED, Fore.BLACK, "--SYNC TIME:", self.counter, "--",
+                  Style.RESET_ALL)
+            print(Fore.GREEN + "Coordinator asks data from every node",
+                  Style.RESET_ALL)
+            self.send("send_data", None)
 
     def sync(self, msg):
         D, d = msg
         self.incoming_channels += 1
-
+        print(Fore.YELLOW, "Coordinator aggregates estimate.", Style.RESET_ALL)
         # update global estimate
-
         self.A_global = np.add(self.A_global, D / const.K)
         self.c_global = np.add(self.c_global, d / const.K)
 
@@ -45,6 +57,8 @@ class Coordinator(Sender):
             np.savetxt(f1, w_train, delimiter=',', newline='\n')
 
             self.incoming_channels = 0
+            print(Fore.GREEN, "Coordinator sends new estimate.",
+                  Style.RESET_ALL)
             self.send("new_estimate", (self.A_global, self.w_global))
 
 
@@ -67,12 +81,13 @@ class Site(Sender):
         self.A_global = None
         self.w_global = None
         self.win = Window2(size=const.SIZE, step=const.STEP,
-                           points=const.POINTS)
+                           points=const.POINTS * const.EPOCH)
+        self.init = True
 
     def new_stream(self, stream):
 
-        # self.A = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
-        # self.c = np.zeros((const.FEATURES + 1, 1))
+        print("Node", self.nid, "takes a new (x,y) pair.")
+
         # update window
         try:
             res = self.win.update(stream)
@@ -84,23 +99,29 @@ class Site(Sender):
             self.D = np.subtract(self.A, self.last_A)
             self.d = np.subtract(self.c, self.last_c)
 
-            if self.A_global is not None:
-                A_in = np.linalg.inv(self.A_global)
-                norm = np.linalg.norm
-
-                st = const.ERROR * norm(A_in.dot(self.D)) + norm(A_in.dot(
-                    self.d)) + \
-                     norm((A_in.dot(self.D)).dot(self.w_global))
-
-                if st > const.ERROR:
-                    self.send("alert", None)
-            else:
+            if self.init is True:
+                print(Fore.RED + "Node", self.nid, "sends an alert msg.",
+                      Style.RESET_ALL)
                 self.send("alert", None)
+                self.init = False
+
+            A_in = np.linalg.inv(self.A_global)
+            norm = np.linalg.norm
+            a1 = norm(np.dot(A_in, self.D))
+            # print(a1)
+            a2 = norm(np.dot(A_in, self.d))
+            a3 = norm(np.dot((np.dot(A_in, self.D)), self.w_global))
+            if const.ERROR * a1 + a2 + a3 > const.ERROR:
+                print(Fore.RED + "Node", self.nid, "sends an alert msg.",
+                      Style.RESET_ALL)
+                self.send("alert", None)
+
         except StopIteration:
             pass
 
     def update_state(self, b):
-
+        print("Node", self.nid, "updates local state " \
+                                "and local drift.")
         for x, y in b:
             x = x.reshape(-1, 1)
             ml1 = x.dot(x.T)
@@ -112,16 +133,27 @@ class Site(Sender):
     # REMOTE METHOD
     def new_estimate(self, msg):
         A_global, w_global = msg
+        print(Fore.CYAN, "Node", self.nid,
+              "saves new global estimate and nullifies "
+              " local drift", Style.RESET_ALL)
         # save received global estimate
         self.A_global = A_global
         self.w_global = w_global
+        self.D = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
+        self.d = np.zeros((const.FEATURES + 1, 1))
+
+    def send_data(self):
         # update drift = 0
         self.last_A = self.A
         self.last_c = self.c
-
-    def send_data(self):
         # send local state
+        print(Fore.BLUE, "Node", self.nid, "sends its local drift.",
+              Style.RESET_ALL)
         self.send("sync", (self.D, self.d))
+        print(Fore.BLUE, "Node", self.nid, "initializes local state.",
+              Style.RESET_ALL)
+        self.A = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
+        self.c = np.zeros((const.FEATURES + 1, 1))
 
 
 ###############################################################################
@@ -152,7 +184,7 @@ def configure_system():
 def start_synthetic_simulation():
     net = configure_system()
 
-    f2 = open("tests/synthetic.csv", "r")
+    f2 = open("tests/drift_set.csv", "r")
     lines = f2.readlines()
 
     j = 0
@@ -171,6 +203,10 @@ def start_synthetic_simulation():
 
 
 if __name__ == "__main__":
+    start_time = time.time()
+
     f1 = open("tests/gm.csv", "w")
     start_synthetic_simulation()
     f1.close()
+
+    print("--- %s seconds ---" % (time.time() - start_time))

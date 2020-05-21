@@ -7,5 +7,12 @@
 /tests/periodic.csv
 /tests/synthetic.csv
 /tests/gm.csv
+/tests/fgm.csv
 /tests/synthetic_test.csv
 /tests/exper.py
+/tests/drift_set.csv
+/tests/fixed_set.csv
+/tests/notes
+/tests/ex_visual.ipynb
+/tests/figures
+/tests/.ipynb_checkpoints/ex_visual-checkpoint.ipynb

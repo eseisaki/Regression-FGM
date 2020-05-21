@@ -2,6 +2,7 @@ import functools
 import numpy as np
 from collections import deque
 
+
 CHAR = 1
 INT = 4
 FLOAT = 8
@@ -153,7 +154,7 @@ class Window2:
         """
         # do not allow invalid window size
         if self.points < self.size:
-            raise ValueError("Window size cannot be smaller than stream size.")
+            raise ValueError("Window size cannot be larger than stream size.")
 
         for i in stream:
 
@@ -179,3 +180,4 @@ class Window2:
                 self.old.clear()
 
                 yield res
+
