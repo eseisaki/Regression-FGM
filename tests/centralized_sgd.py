@@ -51,9 +51,9 @@ if __name__ == "__main__":
 
             # compute coefficients
 
-            reg2.fit(x_full, y_full)
-            intercept = reg2.intercept_
-            w = reg2.coef_
+            reg.partial_fit(x_full, y_full)
+            intercept = reg.intercept_
+            w = reg.coef_
             w = np.insert(w, 0, intercept, axis=0)
             w = w.reshape(1, -1)
             # print(w)

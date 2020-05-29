@@ -18,7 +18,8 @@ class Coordinator(Sender):
         self.c_global = np.zeros((const.FEATURES + 1, 1))
         self.w_global = None
         self.counter = 0
-        self.sub_counter = -10*const.K
+        self.sub_counter = -10 * const.K
+        self.sync_counter = 0
 
     def update_counter(self):
         self.counter += 1
@@ -31,9 +32,11 @@ class Coordinator(Sender):
             print(Fore.RED + "Coordinator ignores this alert",
                   Style.RESET_ALL)
         else:
+            self.sync_counter += 1
             self.sub_counter = self.counter
-            print(self.sub_counter)
-            print(Back.RED, Fore.BLACK, "--SYNC TIME:", self.counter, "--",
+            print(Back.RED, Fore.BLACK, "SYNC", self.sync_counter, "--SYNC "
+                                                                   "TIME:",
+                  self.counter, "--",
                   Style.RESET_ALL)
             print(Fore.GREEN + "Coordinator asks data from every node",
                   Style.RESET_ALL)
@@ -85,16 +88,25 @@ class Site(Sender):
         self.init = True
 
     def new_stream(self, stream):
+        np.set_printoptions(precision=2, suppress=True)
 
-        print("Node", self.nid, "takes a new (x,y) pair.")
+        print("Node", self.nid, "takes a new (x,y) pair.", stream)
 
         # update window
+
+        self.A = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
+        self.c = np.zeros((const.FEATURES + 1, 1))
+
         try:
             res = self.win.update(stream)
             batch = next(res)
 
             # update state
             self.update_state(batch)
+
+            # print("last A", self.last_A)
+            # print("current A", self.A)
+
             # update drift
             self.D = np.subtract(self.A, self.last_A)
             self.d = np.subtract(self.c, self.last_c)
@@ -108,9 +120,10 @@ class Site(Sender):
             A_in = np.linalg.inv(self.A_global)
             norm = np.linalg.norm
             a1 = norm(np.dot(A_in, self.D))
-            # print(a1)
             a2 = norm(np.dot(A_in, self.d))
             a3 = norm(np.dot((np.dot(A_in, self.D)), self.w_global))
+            print(Fore.YELLOW, "Node constraint:", const.ERROR * a1 + a2 + a3,
+                  Style.RESET_ALL)
             if const.ERROR * a1 + a2 + a3 > const.ERROR:
                 print(Fore.RED + "Node", self.nid, "sends an alert msg.",
                       Style.RESET_ALL)
@@ -120,8 +133,7 @@ class Site(Sender):
             pass
 
     def update_state(self, b):
-        print("Node", self.nid, "updates local state " \
-                                "and local drift.")
+        print("Node", self.nid, "updates local state and local drift.")
         for x, y in b:
             x = x.reshape(-1, 1)
             ml1 = x.dot(x.T)
@@ -139,11 +151,12 @@ class Site(Sender):
         # save received global estimate
         self.A_global = A_global
         self.w_global = w_global
+        # update drift = 0
         self.D = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
         self.d = np.zeros((const.FEATURES + 1, 1))
 
     def send_data(self):
-        # update drift = 0
+        # update last state
         self.last_A = self.A
         self.last_c = self.c
         # send local state

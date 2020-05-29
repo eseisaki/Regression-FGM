@@ -115,7 +115,7 @@ if __name__ == "__main__":
     # create_drift_dataset(const.EPOCH, const.POINTS, const.FEATURES,
     # const.VAR)
 
-    win = Window2(step=const.STEP, size=const.K * const.SIZE,
+    win = Window2(step=const.STEP, size=const.K*const.SIZE,
                   points=const.POINTS * const.EPOCH)
 
     f1 = open("drift_set.csv", "r")
