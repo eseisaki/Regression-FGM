@@ -6,6 +6,8 @@ import time
 
 
 def create_fixed_dataset(points, features, noise):
+    A_test = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
+
     f = open("fixed_set.csv", "w")
 
     # here w_true is fixed
@@ -14,19 +16,30 @@ def create_fixed_dataset(points, features, noise):
     w_true = np.array(
         [np.random.normal(loc=0.0, scale=1.0, size=features + 1)])
     w_true = w_true.reshape(-1, 1)
+
     n = np.random.normal(loc=0.0, scale=noise * noise)
-    # print("w_true", w_true)
-    # print("noise", n)
-    # print("------------")
 
     for i in range(points):
-        # x--> (1,features)
-        X = np.array([np.random.normal(loc=0.0, scale=1.0, size=features)])
-        # x_b includes bias
-        # x_b--> (1,features+1)
-        x_b = np.insert(X, 0, 1, axis=1)
+        while True:
+            # x--> (1,features)
+            X = np.array([np.random.normal(loc=0.0, scale=1.0, size=features)])
+            # x_b includes bias
+            # x_b--> (1,features+1)
+            x_b = np.insert(X, 0, 1, axis=1)
 
-        Y = x_b.dot(w_true) + n
+            Y = x_b.dot(w_true) + n
+
+            try:
+                x_test = x_b.reshape(-1, 1)
+                ml = x_test.dot(x_test.T)
+                A_test = np.add(A_test, ml)
+
+                np.linalg.inv(A_test)
+                break
+            except np.linalg.LinAlgError:
+                print("No Inverse Array")
+                continue
+
         pair = np.column_stack((x_b, Y))
         np.savetxt(f, pair, delimiter=',', newline='\n')
 
@@ -34,6 +47,8 @@ def create_fixed_dataset(points, features, noise):
 
 
 def create_drift_dataset(epoch, points, features, noise):
+    A_test = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
+
     f = open("drift_set.csv", "w")
     # here w_true is fixed
     # w0 is included
@@ -41,7 +56,9 @@ def create_drift_dataset(epoch, points, features, noise):
     w_fixed = np.array(
         [np.random.normal(loc=0.0, scale=1.0, size=features + 1)])
     w_fixed = w_fixed.reshape(-1, 1)
+
     n = np.random.normal(loc=0.0, scale=noise * noise)
+
     for e in range(epoch):
         for i in range(points):
             # for 25% of epoch w_true changes in every round
@@ -51,14 +68,26 @@ def create_drift_dataset(epoch, points, features, noise):
                 w_true = w_true.reshape(-1, 1)
             else:
                 w_true = w_fixed
+            while True:
+                # x--> (1,features)
+                X = np.array([np.random.normal(loc=0.0, scale=1.0, size=features)])
+                # x_b includes bias
+                # x_b--> (1,features+1)
+                x_b = np.insert(X, 0, 1, axis=1)
 
-            # x--> (1,features)
-            X = np.array([np.random.normal(loc=0.0, scale=1.0, size=features)])
-            # x_b includes bias
-            # x_b--> (1,features+1)
-            x_b = np.insert(X, 0, 1, axis=1)
+                Y = x_b.dot(w_true) + n
 
-            Y = x_b.dot(w_true) + n
+                try:
+                    x_test = x_b.reshape(-1, 1)
+                    ml = x_test.dot(x_test.T)
+                    A_test = np.add(A_test, ml)
+
+                    np.linalg.inv(A_test)
+                    break
+                except np.linalg.LinAlgError:
+                    print("No Inverse Array")
+                    continue
+
             pair = np.column_stack((x_b, Y))
             np.savetxt(f, pair, delimiter=',', newline='\n')
 
@@ -112,10 +141,9 @@ if __name__ == "__main__":
 
     counter = 0
 
-    # create_drift_dataset(const.EPOCH, const.POINTS, const.FEATURES,
-    # const.VAR)
+    create_drift_dataset(const.EPOCH, const.POINTS, const.FEATURES, const.VAR)
 
-    win = Window2(step=const.STEP, size=const.K*const.SIZE,
+    win = Window2(step=const.STEP, size=const.K * const.SIZE,
                   points=const.POINTS * const.EPOCH)
 
     f1 = open("drift_set.csv", "r")

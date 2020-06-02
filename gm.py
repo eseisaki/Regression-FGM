@@ -110,7 +110,7 @@ class Site(Sender):
             # update drift
             self.D = np.subtract(self.A, self.last_A)
             self.d = np.subtract(self.c, self.last_c)
-
+            print("Local drift ", self.d)
             if self.init is True:
                 print(Fore.RED + "Node", self.nid, "sends an alert msg.",
                       Style.RESET_ALL)

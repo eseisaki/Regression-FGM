@@ -3,6 +3,7 @@ import constants as const
 import numpy as np
 from sklearn import linear_model
 from colorama import Fore, Back, Style
+import time
 
 ###############################################################################
 #
@@ -16,7 +17,7 @@ def phi(x, E):
     a = -const.ERROR * norm(E) - np.dot(x.T, E / norm(E))
     b = norm(np.add(x, E)) - (1 + const.ERROR) * norm(E)
 
-    return max(a, b)
+    return float(max(a, b))
 
 
 ###############################################################################
@@ -34,7 +35,9 @@ class Coordinator(Sender):
         self.quantum = 0
         self.counter = 0
         self.sub_counter = -10 * const.K
-        self.sync_counter = 0
+        self.round_counter = 0
+        self.subround_counter = 0
+        self.d_global = np.zeros((const.FEATURES + 1, 1))
 
     def update_counter(self):
         self.counter += 1
@@ -52,12 +55,8 @@ class Coordinator(Sender):
             print(Fore.RED + "Coordinator ignores this alert",
                   Style.RESET_ALL)
         else:
-            self.sync_counter += 1
             self.sub_counter = self.counter
-            print(Back.RED, Fore.BLACK, "SYNC", self.sync_counter, "--SYNC "
-                                                                   "TIME:",
-                  self.counter, "--",
-                  Style.RESET_ALL)
+
             self.c += increment
 
             if self.c > const.K:
@@ -65,6 +64,7 @@ class Coordinator(Sender):
                 self.c = 0
                 print(Fore.GREEN + "Coordinator asks zetas from every node",
                       Style.RESET_ALL)
+
                 if const.TEST is False:
                     self.send("send_zeta", None)
 
@@ -75,39 +75,65 @@ class Coordinator(Sender):
 
         # wait for every node to send zeta
         if self.incoming_channels == const.K:
+            print(Back.CYAN, Fore.BLACK, self.psi, Style.RESET_ALL)
 
-            if self.psi >= 0.01 * const.K * phi(np.zeros((const.FEATURES +
-                                                          1, 1)),
-                                                self.w_global):
+            self.incoming_channels = 0
+
+            con = 0.01 * const.K * phi(np.zeros((const.FEATURES + 1, 1)),
+                                       self.w_global)
+
+            print(Back.GREEN, Fore.BLACK, con, Style.RESET_ALL)
+
+            if self.psi >= con:
                 self.send("send_drift", None)
+
                 print(Fore.GREEN + "Coordinator asks drifts from every node",
                       Style.RESET_ALL)
-                self.incoming_channels = 0
+
             else:
+
+                self.subround_counter += 1
+
+                print(Back.CYAN, Fore.BLACK, "SUBROUND", self.subround_counter,
+                      "--SYNC TIME:", self.counter, "--", Style.RESET_ALL)
+
                 self.send("begin_subround", (-self.psi / 2 * const.K))
                 print(Fore.GREEN + "Coordinator sends theta and starts new "
-                                   "subround",
-                      Style.RESET_ALL)
-                self.incoming_channels = 0
+                                   "subround", Style.RESET_ALL)
+
+        self.psi = 0
 
     def handle_drifts(self, d):
         self.incoming_channels += 1
 
-        self.w_global = np.add(self.w_global, d / const.K)
+        self.d_global = np.add(self.d_global, d / const.K)
+
         print(Fore.YELLOW, "Coordinator aggregates estimate.", Style.RESET_ALL)
+
         # wait for every node to send drift
         if self.incoming_channels == const.K:
+            self.round_counter += 1
+
+            self.incoming_channels = 0
+
+            self.w_global = np.add(self.w_global, self.d_global)
+            self.d_global = np.zeros((const.FEATURES + 1, 1))
+
             w_train = self.w_global.reshape(1, -1)
-            w_train = np.insert(w_train, w_train.shape[1], self.counter,
+            w_train = np.insert(w_train, w_train.shape[1],
+                                self.counter - const.K,
                                 axis=1)
+
+            print(Back.RED, Fore.BLACK, "ROUND", self.round_counter,
+                  "--SYNC TIME:", self.counter, "--", Style.RESET_ALL)
+
             # save coefficients
             if const.TEST is False:
                 np.savetxt(f1, w_train, delimiter=',', newline='\n')
 
-            self.incoming_channels = 0
             print(Fore.GREEN, "Coordinator sends new estimate and starts new "
-                              "round.",
-                  Style.RESET_ALL)
+                              "round.", Style.RESET_ALL)
+
             self.send("begin_round", self.w_global)
 
 
@@ -134,20 +160,22 @@ class Site(Sender):
         self.win = Window2(size=const.SIZE, step=const.STEP,
                            points=const.POINTS)
 
-        self.reg =linear_model.SGDRegressor(max_iter=10000, verbose=0, eta0=0.01)
+        self.reg = linear_model.SGDRegressor(max_iter=10000, verbose=0,
+                                             eta0=0.01)
         self.init = True
 
     def new_stream(self, stream):
 
         # update window
+
         try:
             res = self.win.update(stream)
             batch = next(res)
             # update state
             self.update_state(batch)
+
             # update drift
             self.d = np.subtract(self.w, self.last_w)
-
             if self.w_global is None:
                 print(Fore.RED + "Node", self.nid, "sends init drift.",
                       Style.RESET_ALL)
@@ -161,29 +189,39 @@ class Site(Sender):
 
     def update_state(self, batch):
         print("Node", self.nid, "updates local state and local drift.")
-        x_train = np.zeros((1, const.FEATURES + 1))
-        y_train = np.zeros(1)
+        x_full = np.zeros((1, const.FEATURES))
+        y_full = np.zeros(1)
+        first = 0
         for x, y in batch:
-            x_train = np.concatenate((x_train, [x]))
-            y_train = np.append(y_train, [y], axis=0)
-        x_train = np.delete(x_train, 0, axis=0)
-        y_train = np.delete(y_train, 0, axis=0)
+            x = np.array([x])
+            y = np.array([y])
+            x_full = np.concatenate((x_full, x))
+            y_full = np.concatenate((y_full, y))
+            if first == 0:
+                x_full = np.delete(x_full, 0, axis=0)
+                y_full = np.delete(y_full, 0, axis=0)
+                first += 1
 
-        self.reg.partial_fit(x_train, y_train)
-        self.w = np.array([self.reg.coef_])
-        self.w = self.w.reshape(-1, 1)
+        self.reg.partial_fit(x_full, y_full)
+        intercept = self.reg.intercept_
+        w = self.reg.coef_
+        w = np.insert(w, 0, intercept, axis=0)
+        w = w.reshape(-1, 1)
+        self.w = w
 
     def subround_process(self):
         a = (phi(self.d, self.w_global))
-        count_i =int( np.floor((a - self.zeta) / self.quantum))
-        print(Fore.YELLOW, "Local counter:", count_i, Style.RESET_ALL)
+        count_i = np.floor((a - self.zeta) / self.quantum)
+        count_i = max(self.c, count_i)
+
         if count_i > self.c:
             self.increment = count_i - self.c
+            print(Fore.YELLOW, "Local counter:", self.increment,
+                  Style.RESET_ALL)
             self.c = count_i
             print(Fore.RED + "Node", self.nid, "sends an increment msg.",
                   Style.RESET_ALL)
             self.send("handle_increment", self.increment)
-        return count_i
 
     # -------------------------------------------------------------------------
     # REMOTE METHOD
@@ -191,34 +229,41 @@ class Site(Sender):
         print(Fore.CYAN, "Node", self.nid,
               "saves new global estimate and nullifies "
               " local drift.", Style.RESET_ALL)
+
         # save new estimate
         self.w_global = w
-        # calculate theta (2kθ = - Σzi)
-        self.quantum = - phi(np.zeros((const.FEATURES + 1, 1)),
-                             self.w_global) / 2
-        self.c = 0
 
-        self.last_zeta = phi(np.zeros((const.FEATURES + 1, 1)), self.w_global)
         # update drift = 0
         self.d = np.zeros((const.FEATURES + 1, 1))
 
+        self.last_zeta = phi(self.d, self.w_global)
+
+        # calculate theta (2kθ = - Σzi)
+        self.quantum = - self.last_zeta / 2
+        self.c = 0
+        self.zeta = self.last_zeta
+
     def begin_subround(self, theta):
+        print(Fore.CYAN, "Node", self.nid,
+              "saves new quantum and nullifies c.", Style.RESET_ALL)
         self.c = 0
         self.quantum = theta
         self.zeta = self.last_zeta
 
     def send_zeta(self):
-        print(Fore.CYAN, "Node", self.nid, "sends its zeta.",
-              Style.RESET_ALL)
         self.last_zeta = phi(self.d, self.w_global)
+        print(Fore.CYAN, "Node", self.nid, "sends its zeta.", self.last_zeta,
+              Style.RESET_ALL)
+
         self.send("handle_zetas", self.last_zeta)
 
     def send_drift(self):
-        # update last state
-        self.last_w = self.w
         print(Fore.CYAN, "Node", self.nid, "sends its local drift.",
               Style.RESET_ALL)
         self.send("handle_drifts", self.d)
+
+        # update last state
+        self.last_w = self.w
 
 
 ###############################################################################
@@ -233,7 +278,7 @@ def configure_system():
     # add site and coordinator interfaces
     ifc_coord = {"handle_increment": True,
                  "handle_zetas": True, "handle_drifts": True,
-                 "init_estimate":True}
+                 "init_estimate": True}
     n.add_interface("coord", ifc_coord)
     ifc_site = {"begin_round": True, "begin_subround": True, "send_zeta":
         True, "send_drift": True}
@@ -252,7 +297,7 @@ def configure_system():
 def start_synthetic_simulation():
     net = configure_system()
 
-    f2 = open("tests/synthetic.csv", "r")
+    f2 = open("tests/drift_set.csv", "r")
     lines = f2.readlines()
 
     j = 0
@@ -260,7 +305,7 @@ def start_synthetic_simulation():
         if j == const.K:
             j = 0
         tmp = np.fromstring(line, dtype=float, sep=',')
-        x_train = tmp[0:const.FEATURES + 1]
+        x_train = tmp[1:const.FEATURES + 1]
         y_train = tmp[const.FEATURES + 1]
 
         net.coord.update_counter()
@@ -268,9 +313,16 @@ def start_synthetic_simulation():
         j += 1
 
     f2.close()
+    print("-------------------------------------------------------")
+    print("SUBROUNDS:", net.coord.subround_counter)
+    print("ROUNDS:", net.coord.round_counter)
 
 
 if __name__ == "__main__":
+    start_time = time.time()
+
     f1 = open("tests/fgm.csv", "w")
     start_synthetic_simulation()
     f1.close()
+
+    print("--- %s seconds ---" % (time.time() - start_time))

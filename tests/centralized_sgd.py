@@ -8,7 +8,6 @@ import time
 if __name__ == "__main__":
 
     start_time = time.time()
-
     counter = 0
 
     win = Window2(step=const.STEP, size=const.K * const.SIZE,
@@ -17,7 +16,7 @@ if __name__ == "__main__":
     reg2 = linear_model.LinearRegression()
     reg = linear_model.SGDRegressor(max_iter=10000, verbose=0, eta0=0.01)
 
-    f1 = open("drift_set.csv", "r")
+    f1 = open("fixed_set.csv", "r")
     f2 = open("centralized_sgd.csv", "w")
     lines = f1.readlines()
 
@@ -36,6 +35,7 @@ if __name__ == "__main__":
             batch = next(res)
 
             # update state
+
             x_full = np.zeros((1, const.FEATURES))
             y_full = np.zeros(1)
             first = 0
