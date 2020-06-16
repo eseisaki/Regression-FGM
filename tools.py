@@ -103,10 +103,6 @@ class Window:
         :return: The new values that will be added and the old the will be
         subtracted from the window when a slide is full
         """
-        # do not allow invalid window size
-        if self.points < self.size:
-            raise ValueError("Window size cannot be smaller than stream size.")
-
         for i in stream:
 
             self.epoch += 1
@@ -152,9 +148,8 @@ class Window2:
         :return: The new values that will be added and the old the will be
         subtracted from the window when a slide is full
         """
-        # # do not allow invalid window size
-        # if self.points < self.size:
-        #     raise ValueError("Window size cannot be larger than stream size.")
+        # # do not allow invalid window size if self.points < self.size:
+        # raise ValueError("Window size cannot be larger than stream size.")
 
         for i in stream:
 
