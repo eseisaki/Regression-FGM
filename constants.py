@@ -6,15 +6,18 @@ import sys
 #  Constants
 #
 ###############################################################################
-K = 10  # no of nodes
-ERROR = 0.0001  # gm error rate
-EPOCH = 5
-POINTS = 3900  # total number of observations = POINTS*EPOCH
-FEATURES = 10  # total number of features
-VAR = 10  # variance
-SEED = 2  # seed for random function
-SIZE = 1300  # size of the sliding window (actual size of window is SIZE*K)
-STEP = 1  # the window step
-BIAS = 1.0  # the bias to create synthetic dataset
-TEST = False
-DEBUG = False
+
+K = None  # no of nodes
+ERROR = None  # gm error rate
+EPOCH = None
+VPER = None
+POINTS = None  # total number of observations = POINTS*EPOCH
+FEATURES = None  # total number of features
+VAR = None  # variance
+SEED = None  # seed for random function
+SIZE = None  # size of the sliding window (actual size of window is SIZE*K)
+STEP = None  # the window step
+BIAS = None  # the bias to create synthetic dataset
+TEST = None
+DEBUG = None
+TRAIN_POINTS = None

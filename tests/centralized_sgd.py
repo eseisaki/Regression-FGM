@@ -11,24 +11,24 @@ if __name__ == "__main__":
     start_time = time.time()
     print("Start running, wait until finished:")
 
-    counter = 0
-    win_size = const.K * const.SIZE
-    win = Window(step=const.STEP, size=win_size,
-                 points=const.POINTS * const.EPOCH)
-
-    reg2 = linear_model.LinearRegression()
     reg = linear_model.SGDRegressor(verbose=0, eta0=0.01)
 
-    f1 = open("synthetic.csv", "r")
-    f2 = open("centralized_sgd.csv", "w")
-    lines = f1.readlines()
+    win = Window(step=const.STEP, size=const.K * const.SIZE,
+                 points=const.POINTS * const.EPOCH)
+
+    counter = 0
+
+    f1 = open("drift_set.csv", "r")
+    f2 = open("centralized_sgd2.csv", "w")
+
+    x_full = []
+    y_full = []
 
     # setup toolbar
     bar_percent = 0
     line_counter = 0
 
-    x_full = []
-    y_full = []
+    lines = f1.readlines()
     for line in lines:
 
         # update the  progress bar
@@ -69,9 +69,9 @@ if __name__ == "__main__":
             w = reg.coef_
             w = np.insert(w, 0, intercept, axis=0)
             w = w.reshape(1, -1)
-            # print(w)
-            w_train = np.insert(w, w.shape[1], counter, axis=1)
+
             # save coefficients
+            w_train = np.insert(w, w.shape[1], counter, axis=1)
             np.savetxt(f2, w_train, delimiter=',', newline='\n')
 
         except StopIteration:

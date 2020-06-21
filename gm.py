@@ -23,6 +23,7 @@ class Coordinator(Sender):
         self.sub_counter = -10 * const.K
         self.sync_counter = 0
         self.round_counter = 0
+        self.file = None
 
     def update_counter(self):
         self.counter += 1
@@ -64,7 +65,7 @@ class Coordinator(Sender):
             w_train = np.insert(w_train, w_train.shape[1], self.counter,
                                 axis=1)
             # save coefficients
-            np.savetxt(f1, w_train, delimiter=',', newline='\n')
+            np.savetxt(self.file, w_train, delimiter=',', newline='\n')
 
             self.incoming_channels = 0
             if const.DEBUG: print(Fore.GREEN, "Coordinator sends new "
@@ -88,7 +89,7 @@ class Site(Sender):
         self.A_global = None
         self.w_global = None
         self.win = Window(size=const.SIZE, step=const.STEP,
-                          points=const.POINTS * const.EPOCH)
+                          points=const.TRAIN_POINTS)
         self.init = True
 
     def new_stream(self, stream):
@@ -100,7 +101,6 @@ class Site(Sender):
         # update window
         try:
             res = self.win.update(stream)
-            # batch = next(res)
             new, old = next(res)
 
             # update drift
@@ -194,10 +194,14 @@ def configure_system():
     return n
 
 
-def start_synthetic_simulation():
+def start_simulation(ifile, ofile):
     net = configure_system()
 
-    f2 = open("tests/synthetic.csv", "r")
+    f1 = open(ofile, "w")
+    f2 = open(ifile, "r")
+
+    net.coord.file = f1
+
     lines = f2.readlines()
 
     # setup toolbar
@@ -209,7 +213,7 @@ def start_synthetic_simulation():
 
         # update the bar
         line_counter += 1
-        tmp_percent = int((line_counter / (const.POINTS * const.EPOCH)) * 100)
+        tmp_percent = int((line_counter / const.TRAIN_POINTS) * 100)
         if tmp_percent > bar_percent:
             bar_percent = tmp_percent
             sys.stdout.write('\r')
@@ -227,21 +231,8 @@ def start_synthetic_simulation():
         net.sites[j].new_stream([(x_train, y_train)])
         j += 1
 
+    f1.close()
     f2.close()
 
     print("\n------------ RESULTS --------------")
-    print("ROUNDS:", net.coord.sync_counter)
-
-
-if __name__ == "__main__":
-    start_time = time.time()
-    print("Start running, wait until finished:")
-
-    f1 = open("tests/gm.csv", "w")
-    start_synthetic_simulation()
-    f1.close()
-
-    print("SECONDS: %s" % (time.time() - start_time))
-    duration = 2000  # milliseconds
-    freq = 440  # Hz
-    winsound.Beep(freq, duration)
+    print("ROUNDS:", net.coord.round_counter)
