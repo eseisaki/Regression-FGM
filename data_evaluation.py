@@ -1,7 +1,6 @@
 import numpy as np
-import pandas as pd
 import constants as const
-from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
+from sklearn.metrics import r2_score, mean_absolute_error
 
 
 def mean_absolute_percentage_error(test_y, pred_y):
@@ -23,11 +22,11 @@ def predict(x_test, model):
     return y_pred
 
 
-def run_evaluation(file):
+def run_evaluation(file, rounds):
     print("\nEvaluating training model....")
 
     # import test data
-    df_test = np.genfromtxt('tests/synthetic_test.csv', delimiter=',')
+    df_test = np.genfromtxt('tests/fixed_test.csv', delimiter=',')
     x_test = df_test[:, 0:const.FEATURES + 1]
     y_test = df_test[:, const.FEATURES + 1]
 
@@ -37,25 +36,37 @@ def run_evaluation(file):
     # output y_predict of given model
     y_pred = predict(x_test, w)
 
-    print("Calculating MAPE and coefficient of determination(R^2)....")
+    print("Calculating MAE and coefficient of determination(R^2)....")
     # calculate accuracy of model
-    MAPE = []
+
+    MAE = []
     R = []
+    ROUNDS = []
     for y in y_pred.T:
-        MAPE.append(mean_absolute_percentage_error(y_test, y))
+        MAE.append(mean_absolute_error(y_test, y))
         R.append(r2_score(y_test, y))
 
-    MAPE = np.array(MAPE).reshape(-1, 1)
+    MAE = np.array(MAE).reshape(-1, 1)
     R = np.array(R).reshape(-1, 1)
     epoch = epoch.reshape(-1, 1)
 
-    MAPE = np.concatenate((MAPE, epoch), axis=1)
+    MAE = np.concatenate((MAE, epoch), axis=1)
     R = np.concatenate((R, epoch), axis=1)
 
-    f1 = open(file + 'MAPE.csv', "w")
+    if rounds is True:
+        for i in range(int(epoch.shape[0])):
+            ROUNDS.append(i)
+        ROUNDS = np.array(ROUNDS).reshape(-1, 1)
+        ROUNDS = np.concatenate((ROUNDS, epoch), axis=1)
+
+        f3 = open(file + 'ROUNDS.csv', "w")
+        np.savetxt(f3, ROUNDS, delimiter=',', newline='\n')
+        f3.close()
+
+    f1 = open(file + 'MAE.csv', "w")
     f2 = open(file + 'R.csv', "w")
 
-    np.savetxt(f1, MAPE, delimiter=',', newline='\n')
+    np.savetxt(f1, MAE, delimiter=',', newline='\n')
     np.savetxt(f2, R, delimiter=',', newline='\n')
 
     f1.close()

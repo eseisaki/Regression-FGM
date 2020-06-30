@@ -8,7 +8,7 @@ import sys
 
 def start_simulation(ifile, ofile):
     f1 = open(ifile, "r")
-    f2 = open(ofile, "w")
+    f2 = open(ofile+".csv", "w")
 
     win = Window(step=const.STEP, size=const.K * const.SIZE,
                  points=const.TRAIN_POINTS)

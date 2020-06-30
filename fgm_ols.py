@@ -43,6 +43,7 @@ class Coordinator(Sender):
         self.subround_counter = 0
         self.file = None
 
+
     def update_counter(self):
         self.counter += 1
 
@@ -55,27 +56,43 @@ class Coordinator(Sender):
                               Style.RESET_ALL)
         self.send("send_drift", None)
 
+    # def handle_increment(self, increment):
+    #     if self.sub_counter <= self.counter < self.sub_counter + const.K:
+    #         if const.DEBUG: print(Fore.RED + "Coordinator ignores this alert",
+    #                               Style.RESET_ALL)
+    #     else:
+    #         self.sub_counter = self.counter
+    #
+    #         self.c += increment
+    #
+    #         if self.c > const.K:
+    #
+    #             self.subround_counter += 1
+    #
+    #             self.psi = 0
+    #             self.c = 0
+    #             if const.DEBUG: print(Fore.GREEN,
+    #                                   "Coordinator asks zetas from every node",
+    #                                   Style.RESET_ALL)
+    #
+    #             if const.TEST is False:
+    #                 self.send("send_zeta", None)
+
     def handle_increment(self, increment):
-        if self.sub_counter <= self.counter < self.sub_counter + const.K:
-            if const.DEBUG: print(Fore.RED + "Coordinator ignores this alert",
+        self.c += increment
+
+        if self.c > const.K:
+
+            self.subround_counter += 1
+
+            self.psi = 0
+            self.c = 0
+            if const.DEBUG: print(Fore.GREEN,
+                                  "Coordinator asks zetas from every node",
                                   Style.RESET_ALL)
-        else:
-            self.sub_counter = self.counter
 
-            self.c += increment
-
-            if self.c > const.K:
-
-                self.subround_counter += 1
-
-                self.psi = 0
-                self.c = 0
-                if const.DEBUG: print(Fore.GREEN,
-                                      "Coordinator asks zetas from every node",
-                                      Style.RESET_ALL)
-
-                if const.TEST is False:
-                    self.send("send_zeta", None)
+            if const.TEST is False:
+                self.send("send_zeta", None)
 
     def handle_zetas(self, zeta):
         self.incoming_channels += 1
@@ -142,7 +159,7 @@ class Coordinator(Sender):
                                   "--SYNC TIME:", self.counter, "--",
                                   Style.RESET_ALL)
 
-            # save coefficients
+            # save coefficients and rounds
             if const.TEST is False:
                 np.savetxt(self.file, w_train, delimiter=',', newline='\n')
 
@@ -314,10 +331,12 @@ def configure_system():
 def start_simulation(ifile, ofile):
     net = configure_system()
 
-    f1 = open(ofile, "w")
-    f2 = open(ifile, "r")
+    f1 = open(ofile + ".csv", "w")
+    f2 = open(ifile , "r")
+
 
     net.coord.file = f1
+
 
     lines = f2.readlines()
 
@@ -349,6 +368,7 @@ def start_simulation(ifile, ofile):
 
     f1.close()
     f2.close()
+
 
     print("\n------------ RESULTS --------------")
     print("SUBROUNDS:", net.coord.subround_counter + net.coord.round_counter)

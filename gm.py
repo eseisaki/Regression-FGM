@@ -19,6 +19,8 @@ class Coordinator(Sender):
         self.A_global = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
         self.c_global = np.zeros((const.FEATURES + 1, 1))
         self.w_global = None
+        self.w_last = None
+        self.first = True
         self.counter = 0
         self.sub_counter = -10 * const.K
         self.sync_counter = 0
@@ -27,26 +29,40 @@ class Coordinator(Sender):
 
     def update_counter(self):
         self.counter += 1
+        if self.counter % 4000 == 0:
+            print("\nCOUNTER:", self.counter)
 
     # -------------------------------------------------------------------------
     # REMOTE METHOD
 
+    # def alert(self):
+    #     if self.sub_counter <= self.counter < self.sub_counter + const.K:
+    #         if const.DEBUG: print(Fore.RED + "Coordinator ignores this alert",
+    #                               Style.RESET_ALL)
+    #     else:
+    #         self.sync_counter += 1
+    #         self.sub_counter = self.counter
+    #         if const.DEBUG: print(Back.RED, Fore.BLACK, "SYNC",
+    #                               self.sync_counter, "--SYNC "
+    #                                                  "TIME:",
+    #                               self.counter, "--",
+    #                               Style.RESET_ALL)
+    #         if const.DEBUG: print(Fore.GREEN + "Coordinator asks data from "
+    #                                            "every node",
+    #                               Style.RESET_ALL)
+    #         self.send("send_data", None)
+
     def alert(self):
-        if self.sub_counter <= self.counter < self.sub_counter + const.K:
-            if const.DEBUG: print(Fore.RED + "Coordinator ignores this alert",
-                                  Style.RESET_ALL)
-        else:
-            self.sync_counter += 1
-            self.sub_counter = self.counter
-            if const.DEBUG: print(Back.RED, Fore.BLACK, "SYNC",
-                                  self.sync_counter, "--SYNC "
-                                                     "TIME:",
-                                  self.counter, "--",
-                                  Style.RESET_ALL)
-            if const.DEBUG: print(Fore.GREEN + "Coordinator asks data from "
-                                               "every node",
-                                  Style.RESET_ALL)
-            self.send("send_data", None)
+        self.sync_counter += 1
+        if const.DEBUG: print(Back.RED, Fore.BLACK, "SYNC",
+                              self.sync_counter, "--SYNC "
+                                                 "TIME:",
+                              self.counter, "--",
+                              Style.RESET_ALL)
+        if const.DEBUG: print(Fore.GREEN + "Coordinator asks data from "
+                                           "every node",
+                              Style.RESET_ALL)
+        self.send("send_data", None)
 
     def sync(self, msg):
         D, d = msg
@@ -60,10 +76,18 @@ class Coordinator(Sender):
         if self.incoming_channels == const.K:
             self.round_counter += 1
             # compute coefficients
+            self.w_last = self.w_global
+
             self.w_global = np.linalg.pinv(self.A_global).dot(self.c_global)
             w_train = self.w_global.reshape(1, -1)
             w_train = np.insert(w_train, w_train.shape[1], self.counter,
                                 axis=1)
+
+            if self.first is not True:
+                thres = np.linalg.norm(np.subtract(self.w_last, self.w_global))
+                if thres > const.ERROR:
+                    print("At", self.counter, "||w0-w|| is", thres)
+
             # save coefficients
             np.savetxt(self.file, w_train, delimiter=',', newline='\n')
 
@@ -72,6 +96,7 @@ class Coordinator(Sender):
                                               "estimate.",
                                   Style.RESET_ALL)
             self.send("new_estimate", (self.A_global, self.w_global))
+            self.first = False
 
 
 ###############################################################################
@@ -103,27 +128,32 @@ class Site(Sender):
             res = self.win.update(stream)
             new, old = next(res)
 
+            # print("Just before update", self.d)
             # update drift
             self.update_drift(new, old)
 
             if const.DEBUG: print("Local drift ", self.d)
             if self.init is True:
-                if const.DEBUG: print(Fore.RED + "Node", self.nid,
-                                      "sends an alert msg.", Style.RESET_ALL)
+                print(Fore.RED + "Node", self.nid,
+                      "sends an alert msg.", Style.RESET_ALL)
                 self.send("alert", None)
                 self.init = False
+            else:
+                A_in = np.linalg.pinv(self.A_global)
+                norm = np.linalg.norm
 
-            A_in = np.linalg.pinv(self.A_global)
-            norm = np.linalg.norm
-            a1 = norm(np.dot(A_in, self.D))
-            a2 = norm(np.dot(A_in, self.d))
-            a3 = norm(np.dot((np.dot(A_in, self.D)), self.w_global))
-            if const.DEBUG: print(Fore.YELLOW, "Node constraint:",
-                                  const.ERROR * a1 + a2 + a3, Style.RESET_ALL)
-            if const.ERROR * a1 + a2 + a3 > const.ERROR:
-                if const.DEBUG: print(Fore.RED + "Node", self.nid,
-                                      "sends an alert msg.", Style.RESET_ALL)
-                self.send("alert", None)
+                a1 = norm(np.dot(A_in, self.D))
+                a2 = norm(np.dot(A_in, self.d))
+                a3 = norm(np.dot((np.dot(A_in, self.D)), self.w_global))
+
+                if const.ERROR * a1 + a2 + a3 > const.ERROR:
+                    print(Fore.YELLOW, "\nNode constraint:",
+                          const.ERROR * a1 + a2 + a3,
+                          Style.RESET_ALL)
+                    print(Fore.RED + "Node", self.nid,
+                          "sends an alert msg.",
+                          Style.RESET_ALL)
+                    self.send("alert", None)
 
         except StopIteration:
             pass
@@ -197,7 +227,7 @@ def configure_system():
 def start_simulation(ifile, ofile):
     net = configure_system()
 
-    f1 = open(ofile, "w")
+    f1 = open(ofile + ".csv", "w")
     f2 = open(ifile, "r")
 
     net.coord.file = f1
