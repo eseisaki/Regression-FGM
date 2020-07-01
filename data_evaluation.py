@@ -26,7 +26,7 @@ def run_evaluation(file, rounds):
     print("\nEvaluating training model....")
 
     # import test data
-    df_test = np.genfromtxt('tests/fixed_test.csv', delimiter=',')
+    df_test = np.genfromtxt('io_files/synthetic_test.csv', delimiter=',')
     x_test = df_test[:, 0:const.FEATURES + 1]
     y_test = df_test[:, const.FEATURES + 1]
 

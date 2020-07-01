@@ -1,10 +1,8 @@
 from statistics import *
 import constants as const
 import numpy as np
-import time
-from colorama import Fore, Back, Style
-import winsound
 import sys
+from colorama import Fore, Style
 
 
 ###############################################################################
@@ -22,7 +20,6 @@ class Coordinator(Sender):
         self.w_last = None
         self.first = True
         self.counter = 0
-        self.sub_counter = -10 * const.K
         self.sync_counter = 0
         self.round_counter = 0
         self.file = None
@@ -32,33 +29,7 @@ class Coordinator(Sender):
         if self.counter % 4000 == 0:
             print("\nCOUNTER:", self.counter)
 
-    # -------------------------------------------------------------------------
-    # REMOTE METHOD
-
-    # def alert(self):
-    #     if self.sub_counter <= self.counter < self.sub_counter + const.K:
-    #         if const.DEBUG: print(Fore.RED + "Coordinator ignores this alert",
-    #                               Style.RESET_ALL)
-    #     else:
-    #         self.sync_counter += 1
-    #         self.sub_counter = self.counter
-    #         if const.DEBUG: print(Back.RED, Fore.BLACK, "SYNC",
-    #                               self.sync_counter, "--SYNC "
-    #                                                  "TIME:",
-    #                               self.counter, "--",
-    #                               Style.RESET_ALL)
-    #         if const.DEBUG: print(Fore.GREEN + "Coordinator asks data from "
-    #                                            "every node",
-    #                               Style.RESET_ALL)
-    #         self.send("send_data", None)
-
     def alert(self):
-        self.sync_counter += 1
-        if const.DEBUG: print(Back.RED, Fore.BLACK, "SYNC",
-                              self.sync_counter, "--SYNC "
-                                                 "TIME:",
-                              self.counter, "--",
-                              Style.RESET_ALL)
         if const.DEBUG: print(Fore.GREEN + "Coordinator asks data from "
                                            "every node",
                               Style.RESET_ALL)

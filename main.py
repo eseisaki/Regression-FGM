@@ -23,19 +23,19 @@ if __name__ == "__main__":
     const.BIAS = 1  # the bias to create synthetic dataset
 
     const.K = 10  # no of nodes
-    const.ERROR = 2  # gm or fgm error rate
+    const.ERROR = 0.05  # gm or fgm error rate
     const.SIZE = 2000  # size of the sliding window
     const.STEP = 1  # the window step
     const.TRAIN_POINTS = const.EPOCH * (1 - const.VPER) * const.POINTS
-    norma = 170.09
+    norma = 245.42
     new_dataset = False
 
     if new_dataset:
-        create_dataset(points=const.POINTS,
-                       features=const.FEATURES,
-                       noise=const.VAR,
-                       bias=const.BIAS,
-                       test=const.VPER)
+        norma = create_dataset(points=const.POINTS,
+                               features=const.FEATURES,
+                               noise=const.VAR,
+                               bias=const.BIAS,
+                               test=const.VPER)
         # norma = create_fixed_dataset(points=const.POINTS,
         #                              features=const.FEATURES,
         #                              noise=const.VAR,
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     # Choose algorithm
     choice = 3  # ~1: central, ~2: gm, ~3:fgm
 
-    input_file = "io_files/fixed.csv"
+    input_file = "io_files/synthetic.csv"
     file_code = '_fixed_points_30000_feat_10_K_10_win_2000_error_2'
 
     start_time = time.time()

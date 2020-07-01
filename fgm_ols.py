@@ -3,8 +3,6 @@ import constants as const
 import numpy as np
 from sklearn import linear_model
 from colorama import Fore, Back, Style
-import time
-import winsound
 import sys
 
 ###############################################################################
@@ -38,45 +36,20 @@ class Coordinator(Sender):
         self.psi = 0
         self.quantum = 0
         self.counter = 0
-        self.sub_counter = -10 * const.K
         self.round_counter = 0
         self.subround_counter = 0
         self.file = None
-
 
     def update_counter(self):
         self.counter += 1
 
     # -------------------------------------------------------------------------
     # REMOTE METHODS
-
     def init_estimate(self):
         if const.DEBUG: print(Fore.GREEN,
                               "Coordinator asks drifts from every node",
                               Style.RESET_ALL)
         self.send("send_drift", None)
-
-    # def handle_increment(self, increment):
-    #     if self.sub_counter <= self.counter < self.sub_counter + const.K:
-    #         if const.DEBUG: print(Fore.RED + "Coordinator ignores this alert",
-    #                               Style.RESET_ALL)
-    #     else:
-    #         self.sub_counter = self.counter
-    #
-    #         self.c += increment
-    #
-    #         if self.c > const.K:
-    #
-    #             self.subround_counter += 1
-    #
-    #             self.psi = 0
-    #             self.c = 0
-    #             if const.DEBUG: print(Fore.GREEN,
-    #                                   "Coordinator asks zetas from every node",
-    #                                   Style.RESET_ALL)
-    #
-    #             if const.TEST is False:
-    #                 self.send("send_zeta", None)
 
     def handle_increment(self, increment):
         self.c += increment
@@ -332,11 +305,9 @@ def start_simulation(ifile, ofile):
     net = configure_system()
 
     f1 = open(ofile + ".csv", "w")
-    f2 = open(ifile , "r")
-
+    f2 = open(ifile, "r")
 
     net.coord.file = f1
-
 
     lines = f2.readlines()
 
@@ -368,7 +339,6 @@ def start_simulation(ifile, ofile):
 
     f1.close()
     f2.close()
-
 
     print("\n------------ RESULTS --------------")
     print("SUBROUNDS:", net.coord.subround_counter + net.coord.round_counter)
