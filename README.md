@@ -36,7 +36,7 @@ We introduce  *Functional Geometric Monitoring* a substantial theoretical
 
     pytest -k {keyword} -v
  
- ##Documentation
+ ## Documentation
  
  For the documentation Sphinx 2.3.1. software was used.
 
