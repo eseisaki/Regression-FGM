@@ -44,28 +44,28 @@ if __name__ == "__main__":
     # Choose algorithm
     choice = 3  # ~1: central, ~2: gm, ~3:fgm
 
-    input_file = "tests/fixed.csv"
+    input_file = "io_files/fixed.csv"
     file_code = '_fixed_points_30000_feat_10_K_10_win_2000_error_2'
 
     start_time = time.time()
     print("Start running, wait until finished:")
 
     if choice == 1:
-        output_file = "tests/centralized" + file_code
+        output_file = "io_files/centralized" + file_code
         central_sim(input_file, output_file)
         # file name without .csv
-        evaluate("tests/centralized" + str(file_code), False)
+        evaluate("io_files/centralized" + str(file_code), False)
     elif choice == 2:
         const.ERROR = norma * const.ERROR
-        output_file = "tests/gm" + str(file_code)
+        output_file = "io_files/gm" + str(file_code)
         gm_sim(input_file, output_file)
         # file name without .csv
-        evaluate("tests/gm" + str(file_code), True)
+        evaluate("io_files/gm" + str(file_code), True)
     elif choice == 3:
-        output_file = "tests/fgm" + str(file_code)
+        output_file = "io_files/fgm" + str(file_code)
         fgm_sim(input_file, output_file)
         # file name without .csv
-        evaluate("tests/fgm" + str(file_code), True)
+        evaluate("io_files/fgm" + str(file_code), True)
 
     print("\n\nSECONDS: %2f" % (time.time() - start_time))
     duration = 2000  # milliseconds

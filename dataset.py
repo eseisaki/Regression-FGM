@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 def create_drift_dataset(epoch, points, features, noise):
     print("Preparing new dataset....")
 
-    f = open("tests/drift_set.csv", "w")
+    f = open("io_files/drift_set.csv", "w")
     # here w_true is fixed
     # w0 is included
     # w_true shape--> (features+1,1)
@@ -44,7 +44,7 @@ def create_drift_dataset(epoch, points, features, noise):
 
     f.close()
 
-    f1 = open("tests/drift_set_test.csv", "w")
+    f1 = open("io_files/drift_set_test.csv", "w")
     for i in range(points):
         # for 25% of epoch w_true changes in every round
         if i <= points * 0.25:
@@ -75,7 +75,7 @@ def create_fixed_dataset(points, features, noise, test):
 
     A_test = np.zeros((features + 1, features + 1))
 
-    f = open("tests/fixed.csv", "w")
+    f = open("io_files/fixed.csv", "w")
 
     # here w_true is fixed
     # w0 is included
@@ -102,7 +102,7 @@ def create_fixed_dataset(points, features, noise, test):
 
     f.close()
 
-    df_test = np.genfromtxt('tests/fixed.csv', delimiter=',')
+    df_test = np.genfromtxt('io_files/fixed.csv', delimiter=',')
     x_data = df_test[:, 0:features + 1]
     y_data = df_test[:, features + 1]
 
@@ -122,11 +122,11 @@ def create_fixed_dataset(points, features, noise, test):
     print("custom_norm", norma)
 
     # load dataset to csv file
-    f1 = open("tests/fixed.csv", "w")
+    f1 = open("io_files/fixed.csv", "w")
     np.savetxt(f1, train_data, delimiter=',', newline='\n')
     f1.close()
 
-    f2 = open("tests/fixed_test.csv", "w")
+    f2 = open("io_files/fixed_test.csv", "w")
     np.savetxt(f2, test_data, delimiter=',', newline='\n')
     f2.close()
 
@@ -166,15 +166,12 @@ def create_dataset(points, features, noise, bias, test):
     print("sklearn_norm:", norma)
 
     # load dataset to csv file
-    f1 = open("tests/synthetic.csv", "w")
+    f1 = open("io_files/synthetic.csv", "w")
     np.savetxt(f1, train_data, delimiter=',', newline='\n')
     f1.close()
 
-    f2 = open("tests/synthetic_test.csv", "w")
+    f2 = open("io_files/synthetic_test.csv", "w")
     np.savetxt(f2, test_data, delimiter=',', newline='\n')
     f2.close()
 
     return norma
-
-# create_fixed_dataset(100, 10, 2, 0.2)
-# create_dataset(100, 10, 2, 0, 0.2)
