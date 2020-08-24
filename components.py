@@ -360,7 +360,6 @@ class Sender(Host):
         :param msg: the message that will be sent
         :return: None
         """
-        # TODO: call transmit to calculate metrics
         if self.proxy.proxied in self.net.groups:
             try:
                 for send in self.proxy.endpoints[method].send:
@@ -368,6 +367,7 @@ class Sender(Host):
                         send()
                     else:
                         send(msg)
+                        self.proxy.endpoints[method].req_channel.transmit(msg)
 
             except KeyError:
                 raise TypeError(f"There is no {method!r} remote method")

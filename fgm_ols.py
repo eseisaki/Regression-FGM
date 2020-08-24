@@ -46,9 +46,6 @@ class Coordinator(Sender):
     # -------------------------------------------------------------------------
     # REMOTE METHODS
     def init_estimate(self):
-        if const.DEBUG: print(Fore.GREEN,
-                              "Coordinator asks drifts from every node",
-                              Style.RESET_ALL)
         self.send("send_drift", None)
 
     def handle_increment(self, increment):
@@ -56,53 +53,33 @@ class Coordinator(Sender):
 
         if self.c > const.K:
 
+            if const.DEBUG is True: print("CALL FOR ZETAS")
             self.subround_counter += 1
-
-            self.psi = 0
             self.c = 0
-            if const.DEBUG: print(Fore.GREEN,
-                                  "Coordinator asks zetas from every node",
-                                  Style.RESET_ALL)
 
             if const.TEST is False:
                 self.send("send_zeta", None)
 
     def handle_zetas(self, zeta):
         self.incoming_channels += 1
-
         self.psi += zeta
 
         # wait for every node to send zeta
         if self.incoming_channels == const.K:
-            if const.DEBUG: print(Back.CYAN, Fore.BLACK, self.psi,
-                                  Style.RESET_ALL)
-
             self.incoming_channels = 0
 
             con = 0.01 * const.K * phi(np.zeros((const.FEATURES + 1, 1)),
                                        self.w_global)
 
-            if const.DEBUG: print(Back.GREEN, Fore.BLACK, con, Style.RESET_ALL)
-
             if self.psi >= con:
                 self.send("send_drift", None)
-
-                if const.DEBUG: print(
-                    Fore.GREEN + "Coordinator asks drifts from every node",
-                    Style.RESET_ALL)
-
             else:
-                if const.DEBUG: print(Back.CYAN, Fore.BLACK, "SUBROUND",
-                                      self.subround_counter,
-                                      "--SYNC TIME:", self.counter, "--",
-                                      Style.RESET_ALL)
-
+                if const.DEBUG is True:
+                    print("--NEW_SUBROUND", self.subround_counter, "-- at",
+                          self.counter)
                 self.send("begin_subround", (-self.psi / 2 * const.K))
-                if const.DEBUG: print(
-                    Fore.GREEN + "Coordinator sends theta and starts new "
-                                 "subround", Style.RESET_ALL)
-
-        self.psi = 0
+            self.psi = 0
+            self.incoming_channels = 0
 
     def handle_drifts(self, msg):
         D, d = msg
@@ -111,36 +88,29 @@ class Coordinator(Sender):
         self.A_global = np.add(self.A_global, D / const.K)
         self.c_global = np.add(self.c_global, d / const.K)
 
-        if const.DEBUG: print(Fore.YELLOW, "Coordinator aggregates estimate.",
-                              Style.RESET_ALL)
-
         # wait for every node to send drift
         if self.incoming_channels == const.K:
             self.round_counter += 1
-
-            self.incoming_channels = 0
+            if const.DEBUG is True:
+                print("!!!NEW_ROUND", self.round_counter, "!!! at",
+                      self.counter)
 
             self.w_global = np.linalg.pinv(self.A_global).dot(self.c_global)
 
+            if const.DEBUG is True:
+                print("Estimate", np.linalg.norm(self.w_global))
+
             w_train = self.w_global.reshape(1, -1)
             w_train = np.insert(w_train, w_train.shape[1],
-                                self.counter - const.K,
+                                self.counter,
                                 axis=1)
-
-            if const.DEBUG: print(Back.RED, Fore.BLACK, "ROUND",
-                                  self.round_counter,
-                                  "--SYNC TIME:", self.counter, "--",
-                                  Style.RESET_ALL)
 
             # save coefficients and rounds
             if const.TEST is False:
                 np.savetxt(self.file, w_train, delimiter=',', newline='\n')
 
-            if const.DEBUG: print(Fore.GREEN,
-                                  "Coordinator sends new estimate and"
-                                  "starts new round.", Style.RESET_ALL)
-
             self.send("begin_round", self.w_global)
+            self.incoming_channels = 0
 
 
 ###############################################################################
@@ -154,24 +124,20 @@ class Site(Sender):
         super().__init__(net, nid, ifc)
         self.D = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
         self.d = np.zeros((const.FEATURES + 1, 1))
-
+        self.w = np.zeros((const.FEATURES + 1, 1))
         self.w_global = None
 
         self.quantum = 0
         self.c = 0
         self.increment = 0
-        self.zeta = 0
+        self.first_zeta = 0
         self.last_zeta = 0
         self.warm_up = 0
         self.epoch = 0
-
         self.win = Window(size=const.SIZE, step=const.STEP,
                           points=const.TRAIN_POINTS)
 
-        self.init = True
-
     def new_stream(self, stream):
-
         # update window
         try:
             res = self.win.update(stream)
@@ -180,22 +146,19 @@ class Site(Sender):
             # update drift
             self.update_drift(new, old)
 
-            if self.w_global is None:
-                if const.DEBUG: print(Fore.RED + "Node", self.nid,
-                                      "sends init drift.",
-                                      Style.RESET_ALL)
-                self.send("init_estimate", None)
-                self.init = False
+            if const.DEBUG is True:
+                print("New drift:", np.linalg.norm(self.w), "for", self.nid)
 
-            self.subround_process()
+            # first time case
+            if self.w_global is None:
+                self.send("handle_drifts", (self.D, self.d))
+            else:
+                self.subround_process()
 
         except StopIteration:
             pass
 
     def update_drift(self, new, old):
-        if const.DEBUG: print("Node", self.nid,
-                              "updates local state and local drift.")
-
         for x, y in new:
             x = x.reshape(-1, 1)
             ml1 = x.dot(x.T)
@@ -210,62 +173,52 @@ class Site(Sender):
             ml2 = x.dot(y)
             self.d = np.subtract(self.d, ml2)
 
-    def subround_process(self):
+        self.w = np.linalg.pinv(self.D).dot(self.d)
 
-        w = np.linalg.pinv(self.D).dot(self.d)
-        a = (phi(w, self.w_global))
-        count_i = np.floor((a - self.zeta) / self.quantum)
+    def subround_process(self):
+        a = phi(self.w, self.w_global)
+
+        count_i = np.floor((a - self.first_zeta) / self.quantum)
         count_i = max(self.c, count_i)
 
+        assert count_i >= 0
+
         if count_i > self.c:
+            if const.DEBUG is True:
+                print("**HANDLE INCREMENT** from", self.nid)
+
             self.increment = count_i - self.c
-            if const.DEBUG: print(Fore.YELLOW, "Local counter:",
-                                  self.increment,
-                                  Style.RESET_ALL)
             self.c = count_i
-            if const.DEBUG: print(Fore.RED + "Node", self.nid,
-                                  "sends an increment msg.", Style.RESET_ALL)
+
             self.send("handle_increment", self.increment)
 
     # -------------------------------------------------------------------------
     # REMOTE METHOD
     def begin_round(self, w):
-        if const.DEBUG: print(Fore.CYAN, "Node", self.nid,
-                              "saves new global estimate and nullifies "
-                              " local drift.", Style.RESET_ALL)
-
         # save new estimate
         self.w_global = w
 
-        d = np.linalg.pinv(self.D).dot(self.d)
-        self.last_zeta = phi(d, self.w_global)
-
+        # new subround
+        self.last_zeta = phi(np.zeros((const.FEATURES + 1, 1)), self.w_global)
         # calculate theta (2kθ = - Σzi)
         self.quantum = - self.last_zeta / 2
+        assert self.quantum > 0
+
         self.c = 0
-        self.zeta = self.last_zeta
+        self.first_zeta = self.last_zeta
 
     def begin_subround(self, theta):
-        if const.DEBUG: print(Fore.CYAN, "Node", self.nid,
-                              "saves new quantum and nullifies c.",
-                              Style.RESET_ALL)
         self.c = 0
         self.quantum = theta
-        self.zeta = self.last_zeta
+        self.first_zeta = self.last_zeta
+
+        assert self.quantum > 0
 
     def send_zeta(self):
-        d = np.linalg.pinv(self.D).dot(self.d)
-        self.last_zeta = phi(d, self.w_global)
-        if const.DEBUG: print(Fore.CYAN, "Node", self.nid, "sends its zeta.",
-                              self.last_zeta,
-                              Style.RESET_ALL)
-
+        self.last_zeta = phi(self.w, self.w_global)
         self.send("handle_zetas", self.last_zeta)
 
     def send_drift(self):
-        if const.DEBUG: print(Fore.CYAN, "Node", self.nid, "sends its local "
-                                                           "drift.",
-                              Style.RESET_ALL)
         self.send("handle_drifts", (self.D, self.d))
 
         # drift = 0
@@ -341,5 +294,5 @@ def start_simulation(ifile, ofile):
     f2.close()
 
     print("\n------------ RESULTS --------------")
-    print("SUBROUNDS:", net.coord.subround_counter + net.coord.round_counter)
+    print("SUBROUNDS:", net.coord.subround_counter)
     print("ROUNDS:", net.coord.round_counter)

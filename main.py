@@ -15,19 +15,19 @@ if __name__ == "__main__":
     const.DEBUG = False  # true if debugging
 
     const.EPOCH = 1  # useful only for drift set
-    const.VPER = 0.3  # percentage of test data from dataset
-    const.POINTS = 30000  # total number of observations = POINTS*EPOCH
-    const.FEATURES = 10  # total number of features
-    const.VAR = 2  # variance
+    const.VPER = 0.25  # percentage of test data from dataset
+    const.POINTS = 50000  # total number of observations = POINTS*EPOCH
+    const.FEATURES = 200  # total number of features
+    const.VAR = 10  # variance
     const.SEED = 2  # seed for random function
     const.BIAS = 1  # the bias to create synthetic dataset
 
     const.K = 10  # no of nodes
     const.ERROR = 0.05  # gm or fgm error rate
-    const.SIZE = 2000  # size of the sliding window
+    const.SIZE = 2500  # size of the sliding window
     const.STEP = 1  # the window step
     const.TRAIN_POINTS = const.EPOCH * (1 - const.VPER) * const.POINTS
-    norma = 245.42
+    norma = 872.15
     new_dataset = False
 
     if new_dataset:
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     choice = 3  # ~1: central, ~2: gm, ~3:fgm
 
     input_file = "io_files/synthetic.csv"
-    file_code = '_fixed_points_30000_feat_10_K_10_win_2000_error_2'
+    file_code = 'feat_200'
 
     start_time = time.time()
     print("Start running, wait until finished:")
@@ -70,4 +70,4 @@ if __name__ == "__main__":
     print("\n\nSECONDS: %2f" % (time.time() - start_time))
     duration = 2000  # milliseconds
     freq = 440  # Hz
-    # winsound.Beep(freq, duration)
+    winsound.Beep(freq, duration)

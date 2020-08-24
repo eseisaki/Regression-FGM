@@ -26,8 +26,6 @@ class Coordinator(Sender):
 
     def update_counter(self):
         self.counter += 1
-        if self.counter % 4000 == 0:
-            print("\nCOUNTER:", self.counter)
 
     def alert(self):
         if const.DEBUG: print(Fore.GREEN + "Coordinator asks data from "
@@ -53,11 +51,6 @@ class Coordinator(Sender):
             w_train = self.w_global.reshape(1, -1)
             w_train = np.insert(w_train, w_train.shape[1], self.counter,
                                 axis=1)
-
-            if self.first is not True:
-                thres = np.linalg.norm(np.subtract(self.w_last, self.w_global))
-                if thres > const.ERROR:
-                    print("At", self.counter, "||w0-w|| is", thres)
 
             # save coefficients
             np.savetxt(self.file, w_train, delimiter=',', newline='\n')
@@ -99,14 +92,10 @@ class Site(Sender):
             res = self.win.update(stream)
             new, old = next(res)
 
-            # print("Just before update", self.d)
-            # update drift
             self.update_drift(new, old)
 
             if const.DEBUG: print("Local drift ", self.d)
             if self.init is True:
-                print(Fore.RED + "Node", self.nid,
-                      "sends an alert msg.", Style.RESET_ALL)
                 self.send("alert", None)
                 self.init = False
             else:
@@ -118,12 +107,12 @@ class Site(Sender):
                 a3 = norm(np.dot((np.dot(A_in, self.D)), self.w_global))
 
                 if const.ERROR * a1 + a2 + a3 > const.ERROR:
-                    print(Fore.YELLOW, "\nNode constraint:",
-                          const.ERROR * a1 + a2 + a3,
-                          Style.RESET_ALL)
-                    print(Fore.RED + "Node", self.nid,
-                          "sends an alert msg.",
-                          Style.RESET_ALL)
+                    if const.DEBUG: print(Fore.YELLOW, "\nNode constraint:",
+                                          const.ERROR * a1 + a2 + a3,
+                                          Style.RESET_ALL)
+                    if const.DEBUG: print(Fore.RED + "Node", self.nid,
+                                          "sends an alert msg.",
+                                          Style.RESET_ALL)
                     self.send("alert", None)
 
         except StopIteration:
@@ -232,8 +221,9 @@ def start_simulation(ifile, ofile):
         net.sites[j].new_stream([(x_train, y_train)])
         j += 1
 
-    f1.close()
-    f2.close()
-
     print("\n------------ RESULTS --------------")
     print("ROUNDS:", net.coord.round_counter)
+    print("statistics")
+
+    f1.close()
+    f2.close()
