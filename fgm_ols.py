@@ -53,8 +53,7 @@ class Coordinator(Sender):
 
         if self.c > const.K:
 
-            if const.DEBUG is True: print("CALL FOR ZETAS")
-            self.subround_counter += 1
+            # if const.DEBUG is True: print("CALL FOR ZETAS")
             self.c = 0
 
             if const.TEST is False:
@@ -74,6 +73,7 @@ class Coordinator(Sender):
             if self.psi >= con:
                 self.send("send_drift", None)
             else:
+                self.subround_counter += 1
                 if const.DEBUG is True:
                     print("--NEW_SUBROUND", self.subround_counter, "-- at",
                           self.counter)
@@ -91,21 +91,24 @@ class Coordinator(Sender):
         # wait for every node to send drift
         if self.incoming_channels == const.K:
             self.round_counter += 1
+            self.subround_counter += 1
             if const.DEBUG is True:
                 print("!!!NEW_ROUND", self.round_counter, "!!! at",
+                      self.counter)
+                print("--NEW_SUBROUND", self.subround_counter, "-- at",
                       self.counter)
 
             self.w_global = np.linalg.pinv(self.A_global).dot(self.c_global)
 
-            if const.DEBUG is True:
-                print("Estimate", np.linalg.norm(self.w_global))
+            # if const.DEBUG is True:
+            #     print("Estimate", np.linalg.norm(self.w_global))
 
             w_train = self.w_global.reshape(1, -1)
             w_train = np.insert(w_train, w_train.shape[1],
                                 self.counter,
                                 axis=1)
 
-            # save coefficients and rounds
+            # save coefficients
             if const.TEST is False:
                 np.savetxt(self.file, w_train, delimiter=',', newline='\n')
 
@@ -128,7 +131,7 @@ class Site(Sender):
         self.w_global = None
 
         self.quantum = 0
-        self.c = 0
+        self.count = 0
         self.increment = 0
         self.first_zeta = 0
         self.last_zeta = 0
@@ -146,8 +149,8 @@ class Site(Sender):
             # update drift
             self.update_drift(new, old)
 
-            if const.DEBUG is True:
-                print("New drift:", np.linalg.norm(self.w), "for", self.nid)
+            # if const.DEBUG is True:
+            #     print("New drift:", np.linalg.norm(self.w), "for", self.nid)
 
             # first time case
             if self.w_global is None:
@@ -179,16 +182,16 @@ class Site(Sender):
         a = phi(self.w, self.w_global)
 
         count_i = np.floor((a - self.first_zeta) / self.quantum)
-        count_i = max(self.c, count_i)
+        count_i = max(self.count, count_i)
 
         assert count_i >= 0
 
-        if count_i > self.c:
-            if const.DEBUG is True:
-                print("**HANDLE INCREMENT** from", self.nid)
+        if count_i > self.count:
+            # if const.DEBUG is True:
+            #     print("**HANDLE INCREMENT** from", self.nid)
 
-            self.increment = count_i - self.c
-            self.c = count_i
+            self.increment = count_i - self.count
+            self.count = count_i
 
             self.send("handle_increment", self.increment)
 
@@ -204,11 +207,11 @@ class Site(Sender):
         self.quantum = - self.last_zeta / 2
         assert self.quantum > 0
 
-        self.c = 0
+        self.count = 0
         self.first_zeta = self.last_zeta
 
     def begin_subround(self, theta):
-        self.c = 0
+        self.count = 0
         self.quantum = theta
         self.first_zeta = self.last_zeta
 
@@ -273,7 +276,8 @@ def start_simulation(ifile, ofile):
         # update the bar
         line_counter += 1
         tmp_percent = int((line_counter / const.TRAIN_POINTS) * 100)
-        if tmp_percent > bar_percent:
+
+        if tmp_percent > bar_percent and const.DEBUG is False:
             bar_percent = tmp_percent
             sys.stdout.write('\r')
             sys.stdout.write(

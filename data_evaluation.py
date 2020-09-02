@@ -1,4 +1,5 @@
 import numpy as np
+import csv
 import constants as const
 from sklearn.metrics import r2_score, mean_absolute_error
 
@@ -11,8 +12,20 @@ def mean_absolute_percentage_error(test_y, pred_y):
 def import_data(file):
     data = np.genfromtxt(file, delimiter=',')
 
-    w = data[:, 0:const.FEATURES + 1]
-    epoch = data[:, const.FEATURES + 1]
+    # count lines of csv
+    fi = open(file)
+    reader = csv.reader(fi)
+    lines = len(list(reader))
+    if lines == 1:
+        w = data[0:const.FEATURES + 1]
+        epoch = data[const.FEATURES + 1]
+        # make it false 2-dim
+        w = np.array([w, ] * 2)
+        epoch = np.array([epoch, epoch+100])
+    else:
+        w = data[:, 0:const.FEATURES + 1]
+        epoch = data[:, const.FEATURES + 1]
+
     return w, epoch
 
 
@@ -31,6 +44,7 @@ def run_evaluation(file, rounds):
     y_test = df_test[:, const.FEATURES + 1]
 
     # import model data
+
     w, epoch = import_data(file + '.csv')
 
     # output y_predict of given model

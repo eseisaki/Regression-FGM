@@ -17,18 +17,18 @@ if __name__ == "__main__":
     const.EPOCH = 1  # useful only for drift set
     const.VPER = 0.25  # percentage of test data from dataset
     const.POINTS = 50000  # total number of observations = POINTS*EPOCH
-    const.FEATURES = 200  # total number of features
+    const.FEATURES = 1000  # total number of features
     const.VAR = 10  # variance
     const.SEED = 2  # seed for random function
     const.BIAS = 1  # the bias to create synthetic dataset
 
     const.K = 10  # no of nodes
-    const.ERROR = 0.05  # gm or fgm error rate
-    const.SIZE = 2500  # size of the sliding window
+    const.ERROR = 0.03  # gm or fgm error rate
+    const.SIZE = 2000  # size of the sliding window
     const.STEP = 1  # the window step
     const.TRAIN_POINTS = const.EPOCH * (1 - const.VPER) * const.POINTS
     norma = 872.15
-    new_dataset = False
+    new_dataset = True
 
     if new_dataset:
         norma = create_dataset(points=const.POINTS,
@@ -45,11 +45,10 @@ if __name__ == "__main__":
     choice = 3  # ~1: central, ~2: gm, ~3:fgm
 
     input_file = "io_files/synthetic.csv"
-    file_code = 'feat_200'
+    file_code = 'feat_1000_node_10'
 
     start_time = time.time()
     print("Start running, wait until finished:")
-
     if choice == 1:
         output_file = "io_files/centralized" + file_code
         central_sim(input_file, output_file)

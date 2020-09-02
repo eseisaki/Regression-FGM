@@ -2,7 +2,6 @@ import functools
 import numpy as np
 from collections import deque
 
-
 CHAR = 1
 INT = 4
 FLOAT = 8
@@ -175,4 +174,3 @@ class Window2:
                 self.old.clear()
 
                 yield res
-
