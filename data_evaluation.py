@@ -36,10 +36,13 @@ def predict(x_test, model):
 
 
 def run_evaluation(file, rounds):
+
+    input_file = "io_files/fixed"
+
     print("\nEvaluating training model....")
 
     # import test data
-    df_test = np.genfromtxt('io_files/synthetic_test.csv', delimiter=',')
+    df_test = np.genfromtxt(input_file + '.csv', delimiter=',')
     x_test = df_test[:, 0:const.FEATURES + 1]
     y_test = df_test[:, const.FEATURES + 1]
 

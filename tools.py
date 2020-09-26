@@ -1,5 +1,6 @@
 import functools
 import numpy as np
+import sys
 from collections import deque
 
 CHAR = 1
@@ -174,3 +175,17 @@ class Window2:
                 self.old.clear()
 
                 yield res
+
+
+def update_bar(bar_percent, line_counter, max_lines):
+    line_counter += 1
+    tmp_percent = int((line_counter / max_lines) * 100)
+
+    if tmp_percent > bar_percent:
+        bar_percent = tmp_percent
+        sys.stdout.write('\r')
+        sys.stdout.write(
+            "[%-100s] %d%%" % ('=' * bar_percent, bar_percent))
+        sys.stdout.flush()
+
+    return bar_percent, line_counter

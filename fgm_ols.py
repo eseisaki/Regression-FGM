@@ -1,9 +1,6 @@
 from statistics import *
 import constants as const
 import numpy as np
-from sklearn import linear_model
-from colorama import Fore, Back, Style
-import sys
 
 ###############################################################################
 #
@@ -14,8 +11,10 @@ norm = np.linalg.norm
 
 
 def phi(x, E):
-    a = -const.ERROR * norm(E) - np.dot(x.T, E / norm(E))
-    b = norm(np.add(x, E)) - (1 + const.ERROR) * norm(E)
+    norm_E = norm(E)
+    if norm_E == 0: return float('inf')
+    a = -const.ERROR * norm_E - np.dot(x.T, E / norm_E)
+    b = norm(np.add(x, E)) - (1 + const.ERROR) * norm_E
 
     return float(max(a, b))
 
@@ -52,8 +51,8 @@ class Coordinator(Sender):
         self.c += increment
 
         if self.c > const.K:
-
-            # if const.DEBUG is True: print("CALL FOR ZETAS")
+            if const.DEBUG is True:
+                print("Ask for zeta")
             self.c = 0
 
             if const.TEST is False:
@@ -100,9 +99,6 @@ class Coordinator(Sender):
 
             self.w_global = np.linalg.pinv(self.A_global).dot(self.c_global)
 
-            # if const.DEBUG is True:
-            #     print("Estimate", np.linalg.norm(self.w_global))
-
             w_train = self.w_global.reshape(1, -1)
             w_train = np.insert(w_train, w_train.shape[1],
                                 self.counter,
@@ -136,6 +132,7 @@ class Site(Sender):
         self.first_zeta = 0
         self.last_zeta = 0
         self.warm_up = 0
+        self.printer = 0
         self.epoch = 0
         self.win = Window(size=const.SIZE, step=const.STEP,
                           points=const.TRAIN_POINTS)
@@ -148,9 +145,6 @@ class Site(Sender):
 
             # update drift
             self.update_drift(new, old)
-
-            # if const.DEBUG is True:
-            #     print("New drift:", np.linalg.norm(self.w), "for", self.nid)
 
             # first time case
             if self.w_global is None:
@@ -166,6 +160,7 @@ class Site(Sender):
             x = x.reshape(-1, 1)
             ml1 = x.dot(x.T)
             self.D = np.add(self.D, ml1)
+
             ml2 = x.dot(y)
             self.d = np.add(self.d, ml2)
 
@@ -185,11 +180,11 @@ class Site(Sender):
         count_i = max(self.count, count_i)
 
         assert count_i >= 0
-
+        self.printer = self.printer + 1
+        if const.DEBUG and self.printer % 20 == 0:
+            print("count c:", count_i)
+            print("local drift is", np.linalg.norm(self.w))
         if count_i > self.count:
-            # if const.DEBUG is True:
-            #     print("**HANDLE INCREMENT** from", self.nid)
-
             self.increment = count_i - self.count
             self.count = count_i
 
@@ -257,46 +252,49 @@ def configure_system():
     return n
 
 
-def start_simulation(ifile, ofile):
-    net = configure_system()
-
-    f1 = open(ofile + ".csv", "w")
-    f2 = open(ifile, "r")
-
-    net.coord.file = f1
-
-    lines = f2.readlines()
-
-    # setup toolbar
+def share_pairs_to_nodes(lines, no_bar, net, max_nodes, max_features):
+    # setup toolbar and node counter
     bar_percent = 0
     line_counter = 0
+    node = 0  # used as node counter
 
-    j = 0
     for line in lines:
-        # update the bar
-        line_counter += 1
-        tmp_percent = int((line_counter / const.TRAIN_POINTS) * 100)
+        if no_bar is False:
+            # update the bar
+            bar_percent, line_counter = update_bar(bar_percent, line_counter, const.TRAIN_POINTS)
 
-        if tmp_percent > bar_percent and const.DEBUG is False:
-            bar_percent = tmp_percent
-            sys.stdout.write('\r')
-            sys.stdout.write(
-                "[%-100s] %d%%" % ('=' * bar_percent, bar_percent))
-            sys.stdout.flush()
-
-        if j == const.K:
-            j = 0
+        if node == max_nodes:
+            node = 0
+        # create pair
         tmp = np.fromstring(line, dtype=float, sep=',')
-        x_train = tmp[0:const.FEATURES + 1]
-        y_train = tmp[const.FEATURES + 1]
+        x = tmp[0:max_features]
 
+        y = tmp[max_features]
+
+        pair = [(x, y)]
+        # send pair to node
         net.coord.update_counter()
-        net.sites[j].new_stream([(x_train, y_train)])
-        j += 1
+        net.sites[node].new_stream(pair)
+        node += 1
 
+
+def start_simulation(ifile, ofile):
+    # configure network
+    net = configure_system()
+
+    # configure I/O
+    f1 = open(ofile + ".csv", "w")
+    f2 = open(ifile, "r")
+    net.coord.file = f1
+
+    # start streaming
+    share_pairs_to_nodes(f2.readlines(), const.DEBUG, net, const.K, const.FEATURES + 1)
+
+    # close files
     f1.close()
     f2.close()
 
+    # print final output
     print("\n------------ RESULTS --------------")
     print("SUBROUNDS:", net.coord.subround_counter)
     print("ROUNDS:", net.coord.round_counter)
