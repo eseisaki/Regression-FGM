@@ -88,7 +88,7 @@ def create_drift_dataset(points, features, noise, test, epochs, file_name):
 
     print(train_data)
     # load dataset to csv file
-    with open(file_name + ".csv", "w+", newline="") as f1:
+    with open(file_name , "w+", newline="") as f1:
         writer = csv.writer(f1)
         writer.writerows(train_data)
 

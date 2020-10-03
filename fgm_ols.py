@@ -1,5 +1,4 @@
 from statistics import *
-import constants as const
 import numpy as np
 
 ###############################################################################
@@ -8,11 +7,12 @@ import numpy as np
 #
 ###############################################################################
 norm = np.linalg.norm
+const = None
 
 
 def phi(x, E):
     norm_E = norm(E)
-    if norm_E == 0: return float('inf')
+    if norm_E == 0 : return float('inf')
     a = -const.ERROR * norm_E - np.dot(x.T, E / norm_E)
     b = norm(np.add(x, E)) - (1 + const.ERROR) * norm_E
 
@@ -177,13 +177,14 @@ class Site(Sender):
         a = phi(self.w, self.w_global)
 
         count_i = np.floor((a - self.first_zeta) / self.quantum)
+
         count_i = max(self.count, count_i)
 
         assert count_i >= 0
         self.printer = self.printer + 1
         if const.DEBUG and self.printer % 20 == 0:
-            print("count c:", count_i)
             print("local drift is", np.linalg.norm(self.w))
+
         if count_i > self.count:
             self.increment = count_i - self.count
             self.count = count_i
@@ -278,13 +279,16 @@ def share_pairs_to_nodes(lines, no_bar, net, max_nodes, max_features):
         node += 1
 
 
-def start_simulation(ifile, ofile):
+def start_simulation(c):
+    global const
+    const = c
+
     # configure network
     net = configure_system()
 
     # configure I/O
-    f1 = open(ofile + ".csv", "w")
-    f2 = open(ifile, "r")
+    f1 = open(const.OUT_FILE + ".csv", "w")
+    f2 = open(const.IN_FILE + '.csv', "r")
     net.coord.file = f1
 
     # start streaming

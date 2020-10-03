@@ -1,23 +1,28 @@
 import numpy as np
 import sys
 
+
 ###############################################################################
 #
 #  Constants
 #
 ###############################################################################
 
-K = None  # no of nodes
-ERROR = None  # gm error rate
-EPOCH = None
-VPER = None
-POINTS = None  # total number of observations = POINTS*EPOCH
-FEATURES = None  # total number of features
-VAR = None  # variance
-SEED = None  # seed for random function
-SIZE = None  # size of the sliding window (actual size of window is SIZE*K)
-STEP = None  # the window step
-BIAS = None  # the bias to create synthetic dataset
-TEST = None
-DEBUG = None
-TRAIN_POINTS = None
+class Constants:
+
+    def __init__(self, points: int, epoch: int, var: float, k: int, features: int, error: float, vper: float,
+                 win_size: int, win_step: int, test: bool, debug: bool, in_file: str, out_file: str):
+        self.K = k  # no of nodes
+        self.ERROR = error  # gm error rate
+        self.EPOCH = epoch  # epochs number for drift dataset
+        self.VPER = vper  # percentage for test set
+        self.POINTS = points  # total number of observations = POINTS*EPOCH
+        self.FEATURES = features  # total number of features
+        self.SIZE = win_size  # size of the sliding window (actual size of window is SIZE*K)
+        self.STEP = win_step  # the window step
+        self.VAR = var  # the bias to create synthetic dataset
+        self.TEST = test
+        self.DEBUG = debug
+        self.IN_FILE = in_file
+        self.OUT_FILE = out_file
+        self.TRAIN_POINTS = self.EPOCH * (1 - self.VPER) * self.POINTS

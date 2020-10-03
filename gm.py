@@ -1,8 +1,8 @@
 from statistics import *
-import constants as const
 import numpy as np
 import sys
-from colorama import Fore, Style
+
+const = None
 
 
 ###############################################################################
@@ -28,16 +28,16 @@ class Coordinator(Sender):
         self.counter += 1
 
     def alert(self):
-        if const.DEBUG: print(Fore.GREEN + "Coordinator asks data from "
-                                           "every node",
-                              Style.RESET_ALL)
+        if const.DEBUG: print("Coordinator asks data from "
+                              "every node",
+                              )
         self.send("send_data", None)
 
     def sync(self, msg):
         D, d = msg
         self.incoming_channels += 1
-        if const.DEBUG: print(Fore.YELLOW, "Coordinator aggregates "
-                                           "estimate.", Style.RESET_ALL)
+        if const.DEBUG: print("Coordinator aggregates "
+                              "estimate.")
 
         self.A_global = np.add(self.A_global, D / const.K)
         self.c_global = np.add(self.c_global, d / const.K)
@@ -56,9 +56,8 @@ class Coordinator(Sender):
             np.savetxt(self.file, w_train, delimiter=',', newline='\n')
 
             self.incoming_channels = 0
-            if const.DEBUG: print(Fore.GREEN, "Coordinator sends new "
-                                              "estimate.",
-                                  Style.RESET_ALL)
+            if const.DEBUG: print("Coordinator sends new "
+                                  "estimate.")
             self.send("new_estimate", (self.A_global, self.w_global))
             self.first = False
 
@@ -107,12 +106,9 @@ class Site(Sender):
                 a3 = norm(np.dot((np.dot(A_in, self.D)), self.w_global))
 
                 if const.ERROR * a1 + a2 + a3 > const.ERROR:
-                    if const.DEBUG: print(Fore.YELLOW, "\nNode constraint:",
-                                          const.ERROR * a1 + a2 + a3,
-                                          Style.RESET_ALL)
-                    if const.DEBUG: print(Fore.RED + "Node", self.nid,
-                                          "sends an alert msg.",
-                                          Style.RESET_ALL)
+                    if const.DEBUG: print("\nNode constraint:")
+                    if const.DEBUG: print("Node", self.nid,
+                                          "sends an alert msg.")
                     self.send("alert", None)
 
         except StopIteration:
@@ -140,20 +136,20 @@ class Site(Sender):
     # REMOTE METHOD
     def new_estimate(self, msg):
         A_global, w_global = msg
-        if const.DEBUG: print(Fore.CYAN, "Node", self.nid,
+        if const.DEBUG: print("Node", self.nid,
                               "saves new global estimate and nullifies "
-                              " local drift", Style.RESET_ALL)
+                              " local drift")
         # save received global estimate
         self.A_global = A_global
         self.w_global = w_global
 
     def send_data(self):
         # send local state
-        if const.DEBUG: print(Fore.BLUE, "Node", self.nid,
-                              "sends its local drift.", Style.RESET_ALL)
+        if const.DEBUG: print("Node", self.nid,
+                              "sends its local drift.")
         self.send("sync", (self.D, self.d))
-        if const.DEBUG: print(Fore.BLUE, "Node", self.nid,
-                              "initializes local state.", Style.RESET_ALL)
+        if const.DEBUG: print("Node", self.nid,
+                              "initializes local state.")
         # drift = 0
         self.D = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
         self.d = np.zeros((const.FEATURES + 1, 1))
@@ -184,11 +180,14 @@ def configure_system():
     return n
 
 
-def start_simulation(ifile, ofile):
+def start_simulation(c):
+    global const
+    const = c
+
     net = configure_system()
 
-    f1 = open(ofile + ".csv", "w")
-    f2 = open(ifile, "r")
+    f1 = open(const.OUT_FILE + ".csv", "w")
+    f2 = open(const.IN_FILE + '.csv', "r")
 
     net.coord.file = f1
 
@@ -223,7 +222,6 @@ def start_simulation(ifile, ofile):
 
     print("\n------------ RESULTS --------------")
     print("ROUNDS:", net.coord.round_counter)
-    print("statistics")
 
     f1.close()
     f2.close()

@@ -1,14 +1,11 @@
 from statistics import *
-import constants as const
 import numpy as np
-import time
-import winsound
 import sys
 
 
-def start_simulation(ifile, ofile):
-    f1 = open(ifile, "r")
-    f2 = open(ofile+".csv", "w")
+def start_simulation(const):
+    f1 = open(const.IN_FILE+ '.csv', "r")
+    f2 = open(const.OUT_FILE + ".csv", "w")
 
     win = Window(step=const.STEP, size=const.K * const.SIZE,
                  points=const.TRAIN_POINTS)
@@ -76,4 +73,3 @@ def start_simulation(ifile, ofile):
 
     f1.close()
     f2.close()
-

@@ -1,12 +1,55 @@
 import numpy as np
 import csv
-import constants as const
 from sklearn.metrics import r2_score, mean_absolute_error
+from sklearn.linear_model import LinearRegression
+
+const = None
+
+
+class LinearPredictionModel(LinearRegression):
+    """
+    This model is for prediction only.  It has no fit method.
+    You can initialize it with fixed values for coefficients
+    and intercepts.
+
+    Parameters
+    ----------
+    coef, intercept : arrays
+        See attribute descriptions below.
+
+    Attributes
+    ----------
+    coef_ : array of shape (n_features, ) or (n_targets, n_features)
+        Coefficients of the linear model.  If there are multiple targets
+        (y 2D), this is a 2D array of shape (n_targets, n_features),
+        whereas if there is only one target, this is a 1D array of
+        length n_features.
+    intercept_ : float or array of shape of (n_targets,)
+        Independent term in the linear model.
+    """
+
+    def __init__(self, coef=None, intercept=None):
+        if coef is not None:
+            coef = np.array(coef)
+            if intercept is None:
+                intercept = np.zeros(coef.shape[0])
+            else:
+                intercept = np.array(intercept)
+            # assert coef.shape[0] == intercept.shape[0]
+        else:
+            if intercept is not None:
+                raise ValueError("Provide coef only or both coef and intercept")
+        self.intercept_ = intercept
+        self.coef_ = coef
+
+    def fit(self, X, y):
+        """This model does not have a fit method."""
+        raise NotImplementedError("model is only for prediction")
 
 
 def mean_absolute_percentage_error(test_y, pred_y):
     test_y, pred_y = np.array(test_y), np.array(pred_y)
-    return np.mean(np.abs((test_y - pred_y) / test_y)) * 100
+    return np.mean(np.abs((test_y - pred_y) / pred_y)) * 100
 
 
 def import_data(file):
@@ -21,7 +64,7 @@ def import_data(file):
         epoch = data[const.FEATURES + 1]
         # make it false 2-dim
         w = np.array([w, ] * 2)
-        epoch = np.array([epoch, epoch+100])
+        epoch = np.array([epoch, epoch + 100])
     else:
         w = data[:, 0:const.FEATURES + 1]
         epoch = data[:, const.FEATURES + 1]
@@ -29,29 +72,33 @@ def import_data(file):
     return w, epoch
 
 
-def predict(x_test, model):
-    y_pred = np.dot(x_test, model.T)
+# def predict(x_test, model):
+#     y_pred = np.dot(x_test, model.T)
+#     return y_pred
 
-    return y_pred
 
+def run_evaluation(c, rounds):
+    global const
+    const = c
 
-def run_evaluation(file, rounds):
-
-    input_file = "io_files/fixed"
+    input_file = const.IN_FILE
 
     print("\nEvaluating training model....")
 
     # import test data
     df_test = np.genfromtxt(input_file + '.csv', delimiter=',')
-    x_test = df_test[:, 0:const.FEATURES + 1]
+    x_test = df_test[:, 1:const.FEATURES + 1]
     y_test = df_test[:, const.FEATURES + 1]
 
     # import model data
-
-    w, epoch = import_data(file + '.csv')
+    w, epoch = import_data(const.OUT_FILE + '.csv')
 
     # output y_predict of given model
-    y_pred = predict(x_test, w)
+    # y_pred = predict(x_test, w)
+    coef = w[:, 0:const.FEATURES]
+    inter = w[:, const.FEATURES]
+    new_model = LinearPredictionModel(coef=coef, intercept=inter)
+    y_pred = new_model.predict(x_test)
 
     print("Calculating MAE and coefficient of determination(R^2)....")
     # calculate accuracy of model
@@ -67,26 +114,24 @@ def run_evaluation(file, rounds):
     R = np.array(R).reshape(-1, 1)
     epoch = epoch.reshape(-1, 1)
 
+    for i in range(int(epoch.shape[0])):
+        ROUNDS.append(i)
+    ROUNDS = np.array(ROUNDS).reshape(-1, 1)
+
     MAE = np.concatenate((MAE, epoch), axis=1)
     R = np.concatenate((R, epoch), axis=1)
+    ROUNDS = np.concatenate((ROUNDS, epoch), axis=1)
 
-    if rounds is True:
-        for i in range(int(epoch.shape[0])):
-            ROUNDS.append(i)
-        ROUNDS = np.array(ROUNDS).reshape(-1, 1)
-        ROUNDS = np.concatenate((ROUNDS, epoch), axis=1)
-
-        f3 = open(file + 'ROUNDS.csv', "w")
-        np.savetxt(f3, ROUNDS, delimiter=',', newline='\n')
-        f3.close()
-
-    f1 = open(file + 'MAE.csv', "w")
-    f2 = open(file + 'R.csv', "w")
+    f1 = open(const.OUT_FILE + 'MAE.csv', "w")
+    f2 = open(const.OUT_FILE + 'R.csv', "w")
+    f3 = open(const.OUT_FILE + 'ROUNDS.csv', "w")
 
     np.savetxt(f1, MAE, delimiter=',', newline='\n')
     np.savetxt(f2, R, delimiter=',', newline='\n')
+    np.savetxt(f3, ROUNDS, delimiter=',', newline='\n')
 
     f1.close()
     f2.close()
+    # f3.close()
 
     print("Finished.")
