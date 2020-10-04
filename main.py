@@ -35,8 +35,6 @@ parser.add_argument("out_file", help="String - Name of output file(without forma
 args = parser.parse_args()
 
 if __name__ == "__main__":
-    print(args.debug)
-
     # Choose algorithm
     choice = args.choice  # ~1: central, ~2: gm, ~3:fgm
 
@@ -87,6 +85,8 @@ if __name__ == "__main__":
         evaluate(const, True)
     elif choice == 3:
         fgm_sim(const)
+        evaluate(const, True)
+    elif choice == 4:
         evaluate(const, True)
 
     print("\n\nSECONDS: %2f" % (time.time() - start_time))

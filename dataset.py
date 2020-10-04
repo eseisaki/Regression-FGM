@@ -18,13 +18,13 @@ def create_dataset(points, features, noise, test, file_name):
                                           noise=noise,
                                           random_state=0)  # set for same data points for each run
 
-    print("sklearn", coef)
+    # print("sklearn", coef)
 
     coef = coef.reshape(-1, 1)
     inter = np.ones((X.shape[0], 1))
     X = np.c_[inter, X]
     Y = Y.reshape(-1, 1)
-    print(X, "Y", Y)
+
     # split data between training and test
     x_train, x_test, y_train, y_test = train_test_split(X,
                                                         Y,
@@ -88,7 +88,7 @@ def create_drift_dataset(points, features, noise, test, epochs, file_name):
 
     print(train_data)
     # load dataset to csv file
-    with open(file_name , "w+", newline="") as f1:
+    with open(file_name, "w+", newline="") as f1:
         writer = csv.writer(f1)
         writer.writerows(train_data)
 

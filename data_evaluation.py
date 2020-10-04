@@ -72,9 +72,9 @@ def import_data(file):
     return w, epoch
 
 
-# def predict(x_test, model):
-#     y_pred = np.dot(x_test, model.T)
-#     return y_pred
+def predict(x_test, model):
+    y_pred = np.dot(x_test, model.T)
+    return y_pred
 
 
 def run_evaluation(c, rounds):
@@ -92,13 +92,30 @@ def run_evaluation(c, rounds):
 
     # import model data
     w, epoch = import_data(const.OUT_FILE + '.csv')
+    if int(w.shape[0]) > 3000:
+        w1 = w[0:1000, :].tolist()
+        epoch1 = epoch[0:1000].tolist()
+
+        full = int(w.shape[0]) - 1
+        half = int(full / 2)
+
+        w2 = w[half:half + 1000, :].tolist()
+        epoch2 = epoch[half:half + 1000].tolist()
+
+        w3 = w[full - 1000: full, :].tolist()
+        epoch3 = epoch[full - 1000: full].tolist()
+
+        w = np.array(w1 + w2 + w3)
+        epoch = np.array(epoch1 + epoch2 + epoch3)
 
     # output y_predict of given model
-    # y_pred = predict(x_test, w)
-    coef = w[:, 0:const.FEATURES]
-    inter = w[:, const.FEATURES]
+    print("Make predictions using the testing set...")
+    coef = w[:, 1:const.FEATURES + 1]
+    inter = w[:, 0]
+
     new_model = LinearPredictionModel(coef=coef, intercept=inter)
     y_pred = new_model.predict(x_test)
+    # y_pred = predict(x_test, w)
 
     print("Calculating MAE and coefficient of determination(R^2)....")
     # calculate accuracy of model

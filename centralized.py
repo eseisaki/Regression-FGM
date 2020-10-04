@@ -4,7 +4,7 @@ import sys
 
 
 def start_simulation(const):
-    f1 = open(const.IN_FILE+ '.csv', "r")
+    f1 = open(const.IN_FILE + '.csv', "r")
     f2 = open(const.OUT_FILE + ".csv", "w")
 
     win = Window(step=const.STEP, size=const.K * const.SIZE,
@@ -63,7 +63,6 @@ def start_simulation(const):
             # compute coefficients
             w = np.linalg.pinv(A).dot(c)
             w = w.reshape(1, -1)
-
             # save coefficients
             w_train = np.insert(w, w.shape[1], counter, axis=1)
             np.savetxt(f2, w_train, delimiter=',', newline='\n')
