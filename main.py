@@ -81,6 +81,7 @@ if __name__ == "__main__":
         central_sim(const)
         evaluate(const, True)
     elif choice == 2:
+        const.ERROR = norma * const.ERROR
         gm_sim(const)
         evaluate(const, True)
     elif choice == 3:
