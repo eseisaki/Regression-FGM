@@ -92,6 +92,17 @@ def run_evaluation(c, rounds):
 
     # import model data
     w, epoch = import_data(const.OUT_FILE + '.csv')
+
+    # calculate rounds
+    ROUNDS = []
+    for i in range(int(epoch.shape[0])):
+        ROUNDS.append(i+1)
+    ROUNDS = np.array(ROUNDS).reshape(-1, 1)
+    r_epoch = epoch.reshape(-1, 1)
+
+    ROUNDS = np.concatenate((ROUNDS, r_epoch), axis=1)
+
+    # handle case for many rounds
     if int(w.shape[0]) > 3000:
         w1 = w[0:1000, :].tolist()
         epoch1 = epoch[0:1000].tolist()
@@ -122,7 +133,7 @@ def run_evaluation(c, rounds):
 
     MAE = []
     R = []
-    ROUNDS = []
+
     for y in y_pred.T:
         MAE.append(mean_absolute_error(y_test, y))
         R.append(r2_score(y_test, y))
@@ -131,13 +142,8 @@ def run_evaluation(c, rounds):
     R = np.array(R).reshape(-1, 1)
     epoch = epoch.reshape(-1, 1)
 
-    for i in range(int(epoch.shape[0])):
-        ROUNDS.append(i)
-    ROUNDS = np.array(ROUNDS).reshape(-1, 1)
-
     MAE = np.concatenate((MAE, epoch), axis=1)
     R = np.concatenate((R, epoch), axis=1)
-    ROUNDS = np.concatenate((ROUNDS, epoch), axis=1)
 
     f1 = open(const.OUT_FILE + 'MAE.csv', "w")
     f2 = open(const.OUT_FILE + 'R.csv', "w")
@@ -149,6 +155,6 @@ def run_evaluation(c, rounds):
 
     f1.close()
     f2.close()
-    # f3.close()
+    f3.close()
 
     print("Finished.")

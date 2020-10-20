@@ -1,8 +1,8 @@
 @ECHO OFF
 SETLOCAL
-SET CHOICE=2
+SET CHOICE=4
 SET NEW_DATASET=fixed
-SET K=10
+SET K=50
 SET POINTS=400000
 SET EPOCH=1
 SET VAR=10
@@ -14,7 +14,7 @@ SET WIN_STEP=1
 SET TEST=False
 SET DEBUG=False
 SET IN_FILE=io_files/fixed
-SET OUT_FILE=io_files/gm_nodes_10_features_200_error_0.02
+SET OUT_FILE=io_files/fgm_nodes_50_features_200_error_0.02
 
 python main.py %CHOICE% %NEW_DATASET% %K% %POINTS% %EPOCH% %VAR% %FEATURES% %VPER% %ERROR% %WIN_SIZE% %WIN_STEP% %TEST% %DEBUG% %IN_FILE% %OUT_FILE%
 

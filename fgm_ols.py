@@ -1,5 +1,13 @@
 from statistics import *
 import numpy as np
+import logging as log
+import logging.config
+
+log.basicConfig(filename='fgm_logs',
+                filemode='a',
+                format='%(asctime)s -- %(msecs)d %(name)s  %(levelname)16s %(message)s',
+                datefmt='%H:%M:%S',
+                level=log.DEBUG)
 
 ###############################################################################
 #
@@ -12,7 +20,7 @@ const = None
 
 def phi(x, E):
     norm_E = norm(E)
-    if norm_E == 0 : return float('inf')
+    if norm_E == 0: return float('inf')
     a = -const.ERROR * norm_E - np.dot(x.T, E / norm_E)
     b = norm(np.add(x, E)) - (1 + const.ERROR) * norm_E
 
@@ -48,42 +56,41 @@ class Coordinator(Sender):
         self.send("send_drift", None)
 
     def handle_increment(self, increment):
+        logger = log.getLogger('COORDI')
+
         self.c += increment
 
-        if self.c > const.K:
-            if const.DEBUG is True:
-                print("Ask for zeta")
+        logger.info(f"HANDLE_INCREMENT: Global counter is {self.c} where nodes are {const.K}")
+        if self.c > const.K:  # TODO: Larger K produces a more relaxed boundary (change must be on counter)
+            logger.info("HANDLE_INCREMENT: Coordinator asks all nodes for zeta")
             self.c = 0
-
-            if const.TEST is False:
-                self.send("send_zeta", None)
+            self.send("send_zeta", None)
 
     def handle_zetas(self, zeta):
+        logger = log.getLogger('COORDI')
         self.incoming_channels += 1
         self.psi += zeta
 
         # wait for every node to send zeta
         if self.incoming_channels == const.K:
             self.incoming_channels = 0
-
-            con = 0.01 * const.K * phi(np.zeros((const.FEATURES + 1, 1)),
-                                       self.w_global)
-
+            # TODO: Larger K produces a more relaxed noundary (maybe a should minimize e_psi)
+            con = 0.01 * const.K * phi(np.zeros((const.FEATURES + 1, 1)), self.w_global)
             if self.psi >= con:
                 self.send("send_drift", None)
             else:
                 self.subround_counter += 1
-                if const.DEBUG is True:
-                    print("--NEW_SUBROUND", self.subround_counter, "-- at",
-                          self.counter)
+                logger.info(f"HANDLE_ZETAS: New Subround  no {self.subround_counter} at {self.counter}")
                 self.send("begin_subround", (-self.psi / 2 * const.K))
             self.psi = 0
             self.incoming_channels = 0
 
     def handle_drifts(self, msg):
+        logger = log.getLogger('COORDI')
         D, d = msg
         self.incoming_channels += 1
 
+        # TODO: No change here for value of K as it os neutralized from aggregated A_global,c_global
         self.A_global = np.add(self.A_global, D / const.K)
         self.c_global = np.add(self.c_global, d / const.K)
 
@@ -91,22 +98,17 @@ class Coordinator(Sender):
         if self.incoming_channels == const.K:
             self.round_counter += 1
             self.subround_counter += 1
-            if const.DEBUG is True:
-                print("!!!NEW_ROUND", self.round_counter, "!!! at",
-                      self.counter)
-                print("--NEW_SUBROUND", self.subround_counter, "-- at",
-                      self.counter)
+
+            logger.info(f"HANDLE_DRIFTS: New Round no {self.round_counter} at {self.counter}")
+            logger.info(f"HANDLE_DRIFTS: New Subround  no {self.subround_counter} at {self.counter}")
 
             self.w_global = np.linalg.pinv(self.A_global).dot(self.c_global)
 
             w_train = self.w_global.reshape(1, -1)
-            w_train = np.insert(w_train, w_train.shape[1],
-                                self.counter,
-                                axis=1)
+            w_train = np.insert(w_train, w_train.shape[1], self.counter, axis=1)
 
             # save coefficients
-            if const.TEST is False:
-                np.savetxt(self.file, w_train, delimiter=',', newline='\n')
+            np.savetxt(self.file, w_train, delimiter=',', newline='\n')
 
             self.send("begin_round", self.w_global)
             self.incoming_channels = 0
@@ -131,11 +133,9 @@ class Site(Sender):
         self.increment = 0
         self.first_zeta = 0
         self.last_zeta = 0
-        self.warm_up = 0
-        self.printer = 0
         self.epoch = 0
-        self.win = Window(size=const.SIZE, step=const.STEP,
-                          points=const.TRAIN_POINTS)
+        self.reg = 1 if (const.FEATURES <= 20) else 10
+        self.win = Window(size=const.SIZE, step=const.STEP, points=const.TRAIN_POINTS)
 
     def new_stream(self, stream):
         # update window
@@ -153,6 +153,8 @@ class Site(Sender):
                 self.subround_process()
 
         except StopIteration:
+            logger = log.getLogger(f'NODE {self.nid}')
+            logger.error("Window has failed.")
             pass
 
     def update_drift(self, new, old):
@@ -174,22 +176,25 @@ class Site(Sender):
         self.w = np.linalg.pinv(self.D).dot(self.d)
 
     def subround_process(self):
+
         a = phi(self.w, self.w_global)
 
-        count_i = np.floor((a - self.first_zeta) / self.quantum)
+        count_i = np.floor((a*self.reg - self.first_zeta) / self.quantum)
 
         count_i = max(self.count, count_i)
+        logger = log.getLogger(f'NODE {self.nid}')
+        if count_i >= 0:
 
-        assert count_i >= 0
-        self.printer = self.printer + 1
-        if const.DEBUG and self.printer % 20 == 0:
-            print("local drift is", np.linalg.norm(self.w))
+            if count_i > self.count:
+                self.increment = count_i - self.count
+                self.count = count_i
 
-        if count_i > self.count:
-            self.increment = count_i - self.count
-            self.count = count_i
-
-            self.send("handle_increment", self.increment)
+                logger.info(f"SUBROUND_PROCESS: Counter is increased: {self.count}")
+                logger.info(f"SUBROUND_PROCESS: Local drift is {int(np.linalg.norm(self.w))}")
+                self.send("handle_increment", self.increment)
+        else:
+            logger.error(f"SUBROUND_PROCESS: Exception raised because c<0 at node {self.nid}")
+            raise Exception("Exception raised because c<0 ")
 
     # -------------------------------------------------------------------------
     # REMOTE METHOD
@@ -266,13 +271,13 @@ def share_pairs_to_nodes(lines, no_bar, net, max_nodes, max_features):
 
         if node == max_nodes:
             node = 0
+
         # create pair
         tmp = np.fromstring(line, dtype=float, sep=',')
         x = tmp[0:max_features]
-
         y = tmp[max_features]
-
         pair = [(x, y)]
+
         # send pair to node
         net.coord.update_counter()
         net.sites[node].new_stream(pair)
@@ -280,6 +285,7 @@ def share_pairs_to_nodes(lines, no_bar, net, max_nodes, max_features):
 
 
 def start_simulation(c):
+    logger = log.getLogger('ROOT  ')
     global const
     const = c
 
@@ -287,18 +293,25 @@ def start_simulation(c):
     net = configure_system()
 
     # configure I/O
-    f1 = open(const.OUT_FILE + ".csv", "w")
-    f2 = open(const.IN_FILE + '.csv', "r")
-    net.coord.file = f1
+    try:
+        f1 = open(const.OUT_FILE + ".csv", "w")
+        f2 = open(const.IN_FILE + '.csv', "r")
+        net.coord.file = f1
 
-    # start streaming
-    share_pairs_to_nodes(f2.readlines(), const.DEBUG, net, const.K, const.FEATURES + 1)
+        # start streaming
+        share_pairs_to_nodes(f2.readlines(), const.DEBUG, net, const.K, const.FEATURES + 1)
 
-    # close files
-    f1.close()
-    f2.close()
+        # close files
+        f1.close()
+        f2.close()
 
-    # print final output
-    print("\n------------ RESULTS --------------")
-    print("SUBROUNDS:", net.coord.subround_counter)
-    print("ROUNDS:", net.coord.round_counter)
+        # print final output
+        print("\n------------ RESULTS --------------")
+        print("SUBROUNDS:", net.coord.subround_counter)
+        print("ROUNDS:", net.coord.round_counter)
+
+        logger.info("------------ RESULTS --------------")
+        logger.info(f"START_SIMULATION: Total subrounds are {net.coord.subround_counter}")
+        logger.info(f"START_SIMULATION: Total rounds are  {net.coord.round_counter}")
+    except (OSError, IOError) as e:
+        logger.error("Files could not open")
