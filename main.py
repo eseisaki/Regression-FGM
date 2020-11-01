@@ -19,8 +19,8 @@ def avg_error(norm):
     if isinstance(norm, list):
         sum_error = 0
         for n in norm:
-            a, b = n
-            sum_error += a * const.ERROR
+
+            sum_error += n[0] * const.ERROR
         return sum_error / const.EPOCH
     else:
         return norm * const.ERROR

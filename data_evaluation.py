@@ -147,19 +147,33 @@ def run_evaluation(c, rounds, isFix, norms):
 
         f1 = open(const.OUT_FILE + 'MAE.csv', "w")
         f2 = open(const.OUT_FILE + 'R.csv', "w")
-        f3 = open(const.OUT_FILE + 'ROUNDS.csv', "w")
 
         np.savetxt(f1, MAE, delimiter=',', newline='\n')
         np.savetxt(f2, R, delimiter=',', newline='\n')
-        np.savetxt(f3, ROUNDS, delimiter=',', newline='\n')
 
         f1.close()
         f2.close()
-        f3.close()
+
     else:
         print("Real model is", norms)
-        for i in range(epoch):
-            pass
+        i = 0
+        REGRET = []
+        for k in range(epoch.shape[0]):
+            if i + 1 < const.EPOCH and epoch[k] > norms[i + 1][1]:
+                i += 1
+            REGRET.append(np.abs(np.linalg.norm(w[k]) - norms[i][0]))
 
+        REGRET = np.array(REGRET).reshape(-1, 1)
+        epoch = epoch.reshape(-1, 1)
+
+        REGRET = np.concatenate((REGRET, epoch), axis=1)
+
+        f1 = open(const.OUT_FILE + 'REGRET.csv', "w")
+        np.savetxt(f1, REGRET, delimiter=',', newline='\n')
+        f1.close()
+
+    f3 = open(const.OUT_FILE + 'ROUNDS.csv', "w")
+    np.savetxt(f3, ROUNDS, delimiter=',', newline='\n')
+    f3.close()
 
     print("Finished.")

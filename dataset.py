@@ -71,7 +71,7 @@ def create_drift_dataset(points, features, noise, epochs, file_name):
         Y_list = Y_list + Y
 
         coef = coef.reshape(-1, 1)
-        norms.append((np.linalg.norm(coef), i * points))
+        norms.append([np.linalg.norm(coef), i * points])
 
     for i in range(len(Y_list)):
         X_list[i].append(Y_list[i])
