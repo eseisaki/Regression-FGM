@@ -49,10 +49,11 @@ def create_dataset(points, features, noise, test, file_name):
     return norma
 
 
-def create_drift_dataset(points, features, noise, test, epochs, file_name):
+def create_drift_dataset(points, features, noise, epochs, file_name):
     print("Preparing new dataset....")
     X_list = []
     Y_list = []
+    norms = []
 
     for i in range(epochs):
         X, Y, coef = datasets.make_regression(n_samples=int(points),
@@ -69,30 +70,16 @@ def create_drift_dataset(points, features, noise, test, epochs, file_name):
         X_list = X_list + X
         Y_list = Y_list + Y
 
-    # split data between training and test
-    x_train, x_test, y_train, y_test = train_test_split(X_list,
-                                                        Y_list,
-                                                        test_size=test,
-                                                        random_state=42)
+        coef = coef.reshape(-1, 1)
+        norms.append((np.linalg.norm(coef), i * points))
 
-    for i in range(len(y_train)):
-        x_train[i].append(y_train[i])
-    train_data = x_train
-    for i in range(len(y_test)):
-        x_test[i].append(y_test[i])
-    test_data = x_test
-
-    coef = coef.reshape(-1, 1)
-    norma = np.linalg.norm(coef)
-    print("sklearn_norm:", norma)
+    for i in range(len(Y_list)):
+        X_list[i].append(Y_list[i])
+    train_data = X_list
 
     # load dataset to csv file
-    with open(file_name+".csv", "w+", newline="") as f1:
+    with open(file_name + ".csv", "w+", newline="") as f1:
         writer = csv.writer(f1)
         writer.writerows(train_data)
 
-    with open(file_name + "_test.csv", "w+", newline="") as f1:
-        writer = csv.writer(f1)
-        writer.writerows(test_data)
-
-    return norma
+    return norms

@@ -15,6 +15,17 @@ def boolean_string(s):
     return s == 'True'
 
 
+def avg_error(norm):
+    if isinstance(norm, list):
+        sum_error = 0
+        for n in norm:
+            a, b = n
+            sum_error += a * const.ERROR
+        return sum_error / const.EPOCH
+    else:
+        return norm * const.ERROR
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument("choice", help="Choose algorithm ~1: central, ~2: gm, ~3:fgm", type=int)
 parser.add_argument("new_dataset", help="Create dataset option -'old','fixed','drift'", type=str)
@@ -45,7 +56,7 @@ if __name__ == "__main__":
                       k=args.k,
                       features=args.features,
                       error=args.error,
-                      vper=args.vper,
+                      vper=0 if args.new_dataset == "drift" else args.vper,
                       win_size=args.win_size,
                       win_step=args.win_step,
                       test=args.test,
@@ -69,7 +80,6 @@ if __name__ == "__main__":
         norma = create_drift_dataset(points=const.POINTS,
                                      features=const.FEATURES,
                                      noise=const.VAR,
-                                     test=const.VPER,
                                      epochs=const.EPOCH,
                                      file_name=const.IN_FILE)
     else:
@@ -79,16 +89,16 @@ if __name__ == "__main__":
     print("Start running, wait until finished:")
     if choice == 1:
         central_sim(const)
-        evaluate(const, True)
+        evaluate(const, True, (const.EPOCH <= 1), norma)
     elif choice == 2:
-        const.ERROR = norma * const.ERROR
+        const.ERROR = avg_error(norma)
         gm_sim(const)
-        evaluate(const, True)
+        evaluate(const, True, (const.EPOCH <= 1), norma)
     elif choice == 3:
         fgm_sim(const)
-        evaluate(const, True)
+        evaluate(const, True, (const.EPOCH <= 1), norma)
     elif choice == 4:
-        evaluate(const, True)
+        evaluate(const, True, (const.EPOCH <= 1), norma)
 
     print("\n\nSECONDS: %2f" % (time.time() - start_time))
     duration = 2000  # milliseconds

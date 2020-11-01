@@ -77,18 +77,12 @@ def predict(x_test, model):
     return y_pred
 
 
-def run_evaluation(c, rounds):
+def run_evaluation(c, rounds, isFix, norms):
     global const
     const = c
 
     input_file = const.IN_FILE
-
     print("\nEvaluating training model....")
-
-    # import test data
-    df_test = np.genfromtxt(input_file + '.csv', delimiter=',')
-    x_test = df_test[:, 1:const.FEATURES + 1]
-    y_test = df_test[:, const.FEATURES + 1]
 
     # import model data
     w, epoch = import_data(const.OUT_FILE + '.csv')
@@ -96,7 +90,7 @@ def run_evaluation(c, rounds):
     # calculate rounds
     ROUNDS = []
     for i in range(int(epoch.shape[0])):
-        ROUNDS.append(i+1)
+        ROUNDS.append(i + 1)
     ROUNDS = np.array(ROUNDS).reshape(-1, 1)
     r_epoch = epoch.reshape(-1, 1)
 
@@ -119,42 +113,53 @@ def run_evaluation(c, rounds):
         w = np.array(w1 + w2 + w3)
         epoch = np.array(epoch1 + epoch2 + epoch3)
 
-    # output y_predict of given model
-    print("Make predictions using the testing set...")
-    coef = w[:, 1:const.FEATURES + 1]
-    inter = w[:, 0]
+    if isFix:
+        # import test data
+        df_test = np.genfromtxt(input_file + '.csv', delimiter=',')
+        x_test = df_test[:, 1:const.FEATURES + 1]
+        y_test = df_test[:, const.FEATURES + 1]
 
-    new_model = LinearPredictionModel(coef=coef, intercept=inter)
-    y_pred = new_model.predict(x_test)
-    # y_pred = predict(x_test, w)
+        # output y_predict of given model
+        print("Make predictions using the testing set...")
+        coef = w[:, 1:const.FEATURES + 1]
+        inter = w[:, 0]
 
-    print("Calculating MAE and coefficient of determination(R^2)....")
-    # calculate accuracy of model
+        new_model = LinearPredictionModel(coef=coef, intercept=inter)
+        y_pred = new_model.predict(x_test)
+        # y_pred = predict(x_test, w)
 
-    MAE = []
-    R = []
+        print("Calculating MAE and coefficient of determination(R^2)....")
+        # calculate accuracy of model
 
-    for y in y_pred.T:
-        MAE.append(mean_absolute_error(y_test, y))
-        R.append(r2_score(y_test, y))
+        MAE = []
+        R = []
 
-    MAE = np.array(MAE).reshape(-1, 1)
-    R = np.array(R).reshape(-1, 1)
-    epoch = epoch.reshape(-1, 1)
+        for y in y_pred.T:
+            MAE.append(mean_absolute_error(y_test, y))
+            R.append(r2_score(y_test, y))
 
-    MAE = np.concatenate((MAE, epoch), axis=1)
-    R = np.concatenate((R, epoch), axis=1)
+        MAE = np.array(MAE).reshape(-1, 1)
+        R = np.array(R).reshape(-1, 1)
+        epoch = epoch.reshape(-1, 1)
 
-    f1 = open(const.OUT_FILE + 'MAE.csv', "w")
-    f2 = open(const.OUT_FILE + 'R.csv', "w")
-    f3 = open(const.OUT_FILE + 'ROUNDS.csv', "w")
+        MAE = np.concatenate((MAE, epoch), axis=1)
+        R = np.concatenate((R, epoch), axis=1)
 
-    np.savetxt(f1, MAE, delimiter=',', newline='\n')
-    np.savetxt(f2, R, delimiter=',', newline='\n')
-    np.savetxt(f3, ROUNDS, delimiter=',', newline='\n')
+        f1 = open(const.OUT_FILE + 'MAE.csv', "w")
+        f2 = open(const.OUT_FILE + 'R.csv', "w")
+        f3 = open(const.OUT_FILE + 'ROUNDS.csv', "w")
 
-    f1.close()
-    f2.close()
-    f3.close()
+        np.savetxt(f1, MAE, delimiter=',', newline='\n')
+        np.savetxt(f2, R, delimiter=',', newline='\n')
+        np.savetxt(f3, ROUNDS, delimiter=',', newline='\n')
+
+        f1.close()
+        f2.close()
+        f3.close()
+    else:
+        print("Real model is", norms)
+        for i in range(epoch):
+            pass
+
 
     print("Finished.")
