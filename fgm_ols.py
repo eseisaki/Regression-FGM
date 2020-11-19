@@ -46,6 +46,7 @@ class Coordinator(Sender):
         self.round_counter = 0
         self.subround_counter = 0
         self.file = None
+        self.file2 = None
 
     def update_counter(self):
         self.counter += 1
@@ -107,8 +108,12 @@ class Coordinator(Sender):
             w_train = self.w_global.reshape(1, -1)
             w_train = np.insert(w_train, w_train.shape[1], self.counter, axis=1)
 
+            traffic = np.array([total_msgs(self.net), total_bytes(self.net), broadcast_msgs(self.net), broadcast_msgs(
+                self.net), self.counter]).reshape(1, -1)
+
             # save coefficients
             np.savetxt(self.file, w_train, delimiter=',', newline='\n')
+            np.savetxt(self.file2, traffic, delimiter=',', newline='\n')
 
             self.send("begin_round", self.w_global)
             self.incoming_channels = 0
@@ -296,7 +301,10 @@ def start_simulation(c):
     try:
         f1 = open(const.OUT_FILE + ".csv", "w")
         f2 = open(const.IN_FILE + '.csv', "r")
+        f3 = open(const.OUT_FILE + "_traffic.csv", "w")
+
         net.coord.file = f1
+        net.coord.file2 = f3
 
         # start streaming
         share_pairs_to_nodes(f2.readlines(), const.DEBUG, net, const.K, const.FEATURES + 1)
