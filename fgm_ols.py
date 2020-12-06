@@ -303,8 +303,8 @@ def start_simulation(c):
     try:
         f1 = open(const.OUT_FILE + ".csv", "w")
         f2 = open(const.IN_FILE + '.csv', "r")
-        f3 = open(const.OUT_FILE + "_TRAFFIC.csv", "w")
-        f4 = open(const.OUT_FILE + "_UPSTREAM.csv", "w")
+        f3 = open(const.START_FILE_NAME + "traffic/" + const.MED_FILE_NAME + '.csv', "w")
+        f4 = open(const.START_FILE_NAME + "upstream/" + const.MED_FILE_NAME + '.csv', "w")
 
         net.coord.file = f1
         net.coord.file2 = f3

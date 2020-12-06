@@ -11,7 +11,7 @@ import sys
 class Constants:
 
     def __init__(self, points: int, epoch: int, var: float, k: int, features: int, error: float, vper: float,
-                 win_size: int, win_step: int, test: bool, debug: bool, in_file: str, out_file: str):
+                 win_size: int, win_step: int, test: bool, debug: bool, in_file: str, med_name: str, start_name: str):
         self.K = k  # no of nodes
         self.ERROR = error  # gm error rate
         self.EPOCH = epoch  # epochs number for drift dataset
@@ -24,5 +24,8 @@ class Constants:
         self.TEST = test
         self.DEBUG = debug
         self.IN_FILE = in_file
-        self.OUT_FILE = out_file
+        self.MED_FILE_NAME = med_name
+        self.START_FILE_NAME = start_name
+        self.OUT_FILE = self.START_FILE_NAME + med_name
+
         self.TRAIN_POINTS = self.EPOCH * (1 - self.VPER) * self.POINTS

@@ -77,7 +77,7 @@ def predict(x_test, model):
     return y_pred
 
 
-def run_evaluation(c, rounds, isFix, norms):
+def run_evaluation(c, isFix, norms):
     global const
     const = c
 
@@ -132,27 +132,27 @@ def run_evaluation(c, rounds, isFix, norms):
         # calculate accuracy of model
 
         MAE = []
-        R = []
+        # R = []
 
         for y in y_pred.T:
             MAE.append(mean_absolute_error(y_test, y))
-            R.append(r2_score(y_test, y))
+            # R.append(r2_score(y_test, y))
 
         MAE = np.array(MAE).reshape(-1, 1)
-        R = np.array(R).reshape(-1, 1)
+        # R = np.array(R).reshape(-1, 1)
         epoch = epoch.reshape(-1, 1)
 
         MAE = np.concatenate((MAE, epoch), axis=1)
-        R = np.concatenate((R, epoch), axis=1)
+        # R = np.concatenate((R, epoch), axis=1)
 
-        f1 = open(const.OUT_FILE + '_MAE.csv', "w")
-        f2 = open(const.OUT_FILE + '_R.csv', "w")
+        f1 = open(const.START_FILE_NAME + "mae/" + const.MED_FILE_NAME + '.csv', "w")
+        # f2 = open(const.OUT_FILE + '_R.csv', "w")
 
         np.savetxt(f1, MAE, delimiter=',', newline='\n')
-        np.savetxt(f2, R, delimiter=',', newline='\n')
+        # np.savetxt(f2, R, delimiter=',', newline='\n')
 
         f1.close()
-        f2.close()
+        # f2.close()
 
     else:
         print("Real model is", norms)
@@ -168,11 +168,11 @@ def run_evaluation(c, rounds, isFix, norms):
 
         REGRET = np.concatenate((REGRET, epoch), axis=1)
 
-        f1 = open(const.OUT_FILE + '_REGRET.csv', "w")
+        f1 = open(const.START_FILE_NAME + "regret/" + const.MED_FILE_NAME + '.csv', "w")
         np.savetxt(f1, REGRET, delimiter=',', newline='\n')
         f1.close()
 
-    f3 = open(const.OUT_FILE + '_ROUNDS.csv', "w")
+    f3 = open(const.START_FILE_NAME + "rounds/" + const.MED_FILE_NAME + '.csv', "w")
     np.savetxt(f3, ROUNDS, delimiter=',', newline='\n')
     f3.close()
 

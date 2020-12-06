@@ -19,7 +19,6 @@ def avg_error(norm):
     if isinstance(norm, list):
         sum_error = 0
         for n in norm:
-
             sum_error += n[0] * const.ERROR
         return sum_error / const.EPOCH
     else:
@@ -41,7 +40,8 @@ parser.add_argument("win_step", help="Integer - The size of slider of sliding wi
 parser.add_argument("test", help="Boolean - True if on testing mode", type=boolean_string)
 parser.add_argument("debug", help="Bolean - True if on debug mode", type=boolean_string)
 parser.add_argument("in_file", help="String - Name of input file (without format)", type=str)
-parser.add_argument("out_file", help="String - Name of output file(without format)", type=str)
+parser.add_argument("med_name", help="String - Part of name of output file(without format)", type=str)
+parser.add_argument("start_name", help="String - Part of name of output file(without format)", type=str)
 
 args = parser.parse_args()
 
@@ -62,7 +62,8 @@ if __name__ == "__main__":
                       test=args.test,
                       debug=args.debug,
                       in_file=args.in_file,
-                      out_file=args.out_file)
+                      med_name=args.med_name,
+                      start_name=args.start_name)
     # Choose dataset
     new_dataset = args.new_dataset
     norma = None
@@ -89,17 +90,17 @@ if __name__ == "__main__":
     print("Start running, wait until finished:")
     if choice == 1:
         central_sim(const)
-        evaluate(const, True, (const.EPOCH <= 1), norma)
+        evaluate(const, (const.EPOCH <= 1), norma)
     elif choice == 2:
         const.ERROR = avg_error(norma)
         print(const.ERROR)
         gm_sim(const)
-        evaluate(const, True, (const.EPOCH <= 1), norma)
+        evaluate(const, (const.EPOCH <= 1), norma)
     elif choice == 3:
         fgm_sim(const)
-        evaluate(const, True, (const.EPOCH <= 1), norma)
+        evaluate(const,  (const.EPOCH <= 1), norma)
     elif choice == 4:
-        evaluate(const, True, (const.EPOCH <= 1), norma)
+        evaluate(const,  (const.EPOCH <= 1), norma)
 
     print("\n\nSECONDS: %2f" % (time.time() - start_time))
     duration = 2000  # milliseconds
