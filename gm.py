@@ -24,6 +24,7 @@ class Coordinator(Sender):
         self.round_counter = 0
         self.file = None
         self.file2 = None
+        self.file3 = None
 
     def update_counter(self):
         self.counter += 1
@@ -53,13 +54,13 @@ class Coordinator(Sender):
             w_train = np.insert(w_train, w_train.shape[1], self.counter,
                                 axis=1)
 
-            traffic = np.array([total_msgs(self.net), total_bytes(self.net), broadcast_msgs(self.net), broadcast_msgs(
-                self.net), self.counter]).reshape(1, -1)
+            total_traffic = np.array([total_bytes(self.net), self.counter]).reshape(1, -1)
+            upstream_traffic = np.array([broadcast_bytes(self.net), self.counter]).reshape(1, -1)
 
             # save coefficients
             np.savetxt(self.file, w_train, delimiter=',', newline='\n')
-            np.savetxt(self.file2, traffic, delimiter=',', newline='\n')
-
+            np.savetxt(self.file2, total_traffic, delimiter=',', newline='\n')
+            np.savetxt(self.file3, upstream_traffic, delimiter=',', newline='\n')
             self.incoming_channels = 0
             if const.DEBUG: print("Coordinator sends new "
                                   "estimate.")
@@ -193,10 +194,13 @@ def start_simulation(c):
 
     f1 = open(const.OUT_FILE + ".csv", "w")
     f2 = open(const.IN_FILE + '.csv', "r")
-    f3 = open(const.OUT_FILE + "_traffic.csv", "w")
+    f3 = open(const.OUT_FILE + "_TRAFFIC.csv", "w")
+    f4 = open(const.OUT_FILE + "_UPSTREAM.csv", "w")
 
     net.coord.file = f1
     net.coord.file2 = f3
+    net.coord.file3 = f4
+
 
     lines = f2.readlines()
 
@@ -233,3 +237,4 @@ def start_simulation(c):
     f1.close()
     f2.close()
     f3.close()
+    f4.close()

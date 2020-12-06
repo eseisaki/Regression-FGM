@@ -145,8 +145,8 @@ def run_evaluation(c, rounds, isFix, norms):
         MAE = np.concatenate((MAE, epoch), axis=1)
         R = np.concatenate((R, epoch), axis=1)
 
-        f1 = open(const.OUT_FILE + 'MAE.csv', "w")
-        f2 = open(const.OUT_FILE + 'R.csv', "w")
+        f1 = open(const.OUT_FILE + '_MAE.csv', "w")
+        f2 = open(const.OUT_FILE + '_R.csv', "w")
 
         np.savetxt(f1, MAE, delimiter=',', newline='\n')
         np.savetxt(f2, R, delimiter=',', newline='\n')
@@ -168,11 +168,11 @@ def run_evaluation(c, rounds, isFix, norms):
 
         REGRET = np.concatenate((REGRET, epoch), axis=1)
 
-        f1 = open(const.OUT_FILE + 'REGRET.csv', "w")
+        f1 = open(const.OUT_FILE + '_REGRET.csv', "w")
         np.savetxt(f1, REGRET, delimiter=',', newline='\n')
         f1.close()
 
-    f3 = open(const.OUT_FILE + 'ROUNDS.csv', "w")
+    f3 = open(const.OUT_FILE + '_ROUNDS.csv', "w")
     np.savetxt(f3, ROUNDS, delimiter=',', newline='\n')
     f3.close()
 

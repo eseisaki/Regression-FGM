@@ -92,6 +92,7 @@ if __name__ == "__main__":
         evaluate(const, True, (const.EPOCH <= 1), norma)
     elif choice == 2:
         const.ERROR = avg_error(norma)
+        print(const.ERROR)
         gm_sim(const)
         evaluate(const, True, (const.EPOCH <= 1), norma)
     elif choice == 3:
