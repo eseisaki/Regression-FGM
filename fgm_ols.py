@@ -1,7 +1,6 @@
 from statistics import *
 import numpy as np
 import logging as log
-import logging.config
 
 log.basicConfig(filename='fgm_logs',
                 filemode='a',
@@ -141,7 +140,7 @@ class Site(Sender):
         self.first_zeta = 0
         self.last_zeta = 0
         self.epoch = 0
-        self.reg = 1 if (const.FEATURES <= 20) else 10
+        #self.reg = 1 if (const.FEATURES <= 20) else 10
         self.win = Window(size=const.SIZE, step=const.STEP, points=const.TRAIN_POINTS)
 
     def new_stream(self, stream):
@@ -186,7 +185,7 @@ class Site(Sender):
 
         a = phi(self.w, self.w_global)
 
-        count_i = np.floor((a * self.reg - self.first_zeta) / self.quantum)
+        count_i = np.floor((a - self.first_zeta) / self.quantum)
 
         count_i = max(self.count, count_i)
         logger = log.getLogger(f'NODE {self.nid}')

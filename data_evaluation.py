@@ -98,20 +98,39 @@ def run_evaluation(c, isFix, norms):
 
     # handle case for many rounds
     if int(w.shape[0]) > 3000:
-        w1 = w[0:1000, :].tolist()
-        epoch1 = epoch[0:1000].tolist()
+        if const.EPOCH <= 1:
+            w1 = w[0:1000, :].tolist()
+            epoch1 = epoch[0:1000].tolist()
 
-        full = int(w.shape[0]) - 1
-        half = int(full / 2)
+            full = int(w.shape[0]) - 1
+            half = int(full / 2)
 
-        w2 = w[half:half + 1000, :].tolist()
-        epoch2 = epoch[half:half + 1000].tolist()
+            w2 = w[half:half + 1000, :].tolist()
+            epoch2 = epoch[half:half + 1000].tolist()
 
-        w3 = w[full - 1000: full, :].tolist()
-        epoch3 = epoch[full - 1000: full].tolist()
+            w3 = w[full - 1000: full, :].tolist()
+            epoch3 = epoch[full - 1000: full].tolist()
 
-        w = np.array(w1 + w2 + w3)
-        epoch = np.array(epoch1 + epoch2 + epoch3)
+            w = np.array(w1 + w2 + w3)
+            epoch = np.array(epoch1 + epoch2 + epoch3)
+        else:
+            #
+            # w_lst = w.tolist()
+            # w_newLst = []
+            # epoch_lst = epoch.tolist()
+            # epoch_newLst = []
+            #
+            # w_newLst.extend([w_lst[i:i + 2000] for i in range(0, len(w_lst), const.POINTS)])
+            # epoch_newLst.extend([epoch_lst[i:i + 2000] for i in range(0, len(epoch_lst), const.POINTS)])
+            #
+            # w=[]
+            # epoch=[]
+            # for i in range(const.EPOCH):
+            #     w.extend(w_newLst[i])
+            #     epoch.extend(epoch_newLst[i])
+            #
+            # w = np.array(w)
+            pass
 
     if isFix:
         # import test data
@@ -156,12 +175,9 @@ def run_evaluation(c, isFix, norms):
 
     else:
         print("Real model is", norms)
-        i = 0
         REGRET = []
-        for k in range(epoch.shape[0]):
-            if i + 1 < const.EPOCH and epoch[k] > norms[i + 1][1]:
-                i += 1
-            REGRET.append(np.abs(np.linalg.norm(w[k]) - norms[i][0]))
+        for i in range(epoch.shape[0]):
+            REGRET.append(np.linalg.norm(w[i]))
 
         REGRET = np.array(REGRET).reshape(-1, 1)
         epoch = epoch.reshape(-1, 1)

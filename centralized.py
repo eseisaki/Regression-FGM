@@ -41,34 +41,37 @@ def start_simulation(const):
         counter += 1
 
         # update window
-        try:
-            res = win.update(obs)
-            # batch = next(res)
-            new, old = next(res)
+        # try:
+        # res = win.update(obs)
+        # # batch = next(res)
+        # new, old = next(res)
 
-            # update state
-            for x, y in new:
-                x = x.reshape(-1, 1)
-                ml1 = x.dot(x.T)
-                A = np.add(A, ml1)
-                ml2 = x.dot(y)
-                c = np.add(c, ml2)
-            for x, y in old:
-                x = x.reshape(-1, 1)
-                ml1 = x.dot(x.T)
-                A = np.subtract(A, ml1)
-                ml2 = x.dot(y)
-                c = np.subtract(c, ml2)
+        # update state
+        for x, y in obs:
+            x = x.reshape(-1, 1)
+            ml1 = np.dot(x, x.T)
+            A = np.add(A, ml1)
+            ml2 = np.dot(x, y)
+            c = np.add(c, ml2)
+        # for x, y in old:
+        #     x = x.reshape(-1, 1)
+        #     ml1 = x.dot(x.T)
+        #     A = np.subtract(A, ml1)
+        #     ml2 = x.dot(y)
+        #     c = np.subtract(c, ml2)
 
-            # compute coefficients
-            w = np.linalg.pinv(A).dot(c)
-            w = w.reshape(1, -1)
-            # save coefficients
-            w_train = np.insert(w, w.shape[1], counter, axis=1)
-            np.savetxt(f2, w_train, delimiter=',', newline='\n')
+        # compute coefficients
+        w = np.dot(np.linalg.pinv(A), c)
+        w = w.reshape(1, -1)
+        # save coefficients
+        w_train = np.insert(w, w.shape[1], counter, axis=1)
+        np.savetxt(f2, w_train, delimiter=',', newline='\n')
 
-        except StopIteration:
-            pass
+        # A = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
+        # c = np.zeros((const.FEATURES + 1, 1))
+
+        # except StopIteration:
+        #     pass
 
     f1.close()
     f2.close()

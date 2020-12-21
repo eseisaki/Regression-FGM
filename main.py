@@ -3,7 +3,7 @@ from fgm_ols import start_simulation as fgm_sim
 from centralized import start_simulation as central_sim
 from data_evaluation import run_evaluation as evaluate
 from constants import Constants
-from dataset import create_dataset, create_drift_dataset
+from dataset import create_dataset, create_dataset_custom2, create_dataset_custom
 import time
 import winsound
 import argparse
@@ -78,11 +78,11 @@ if __name__ == "__main__":
                                file_name=const.IN_FILE)
 
     elif new_dataset == 'drift':
-        norma = create_drift_dataset(points=const.POINTS,
-                                     features=const.FEATURES,
-                                     noise=const.VAR,
-                                     epochs=const.EPOCH,
-                                     file_name=const.IN_FILE)
+        norma = create_dataset_custom2(points=const.POINTS,
+                                       features=const.FEATURES,
+                                       noise=const.VAR,
+                                       epochs=const.EPOCH,
+                                       file_name=const.IN_FILE)
     else:
         raise Exception("new_dataset input is not valid")
 
@@ -92,15 +92,14 @@ if __name__ == "__main__":
         central_sim(const)
         evaluate(const, (const.EPOCH <= 1), norma)
     elif choice == 2:
-        const.ERROR = avg_error(norma)
-        print(const.ERROR)
-        gm_sim(const)
-        evaluate(const, (const.EPOCH <= 1), norma)
+        # const.ERROR = norma*const.ERROR
+        if gm_sim(const):
+            evaluate(const, (const.EPOCH <= 1), norma)
     elif choice == 3:
         fgm_sim(const)
-        evaluate(const,  (const.EPOCH <= 1), norma)
+        evaluate(const, (const.EPOCH <= 1), norma)
     elif choice == 4:
-        evaluate(const,  (const.EPOCH <= 1), norma)
+        evaluate(const, (const.EPOCH <= 1), norma)
 
     print("\n\nSECONDS: %2f" % (time.time() - start_time))
     duration = 2000  # milliseconds
