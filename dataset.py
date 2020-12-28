@@ -1,11 +1,7 @@
 import csv
-import matplotlib.pyplot as plt
-
 import numpy as np
 from sklearn import datasets
 from sklearn.model_selection import train_test_split
-import \
-    seaborn as sns
 
 
 def create_dataset(points, features, noise, test, file_name):
@@ -96,11 +92,11 @@ def create_drift_dataset(points, features, noise, epochs, file_name):
     return norms
 
 
-def create_dataset_custom(points, features, noise, epochs, file_name):
+def create_dataset_custom(points,nodes, features, noise, epochs, file_name):
     # start w picked from normal distribution
     w_fix = np.random.normal(loc=0, scale=1, size=features)
 
-    norms = []
+    norms = [None]*int(points*epochs/nodes)
     x_list = []
     y_list = []
 
@@ -123,7 +119,7 @@ def create_dataset_custom(points, features, noise, epochs, file_name):
             var = np.random.normal(loc=0, scale=noise)
 
             y_list.append(np.dot(x.T, w) + var)
-            norms.append([np.linalg.norm(w), points * epoch + i + 1])
+            norms[int((points * epoch + i) / nodes)] = ([np.linalg.norm(w), int((points * epoch + i + 1) / nodes)])
             k += 1
 
     for i in range(len(y_list)):
@@ -144,12 +140,12 @@ def create_dataset_custom(points, features, noise, epochs, file_name):
     return np.linalg.norm(w_fix)
 
 
-def create_dataset_custom2(points, features, noise, epochs, file_name):
+def create_dataset_custom2(points, nodes, features, noise, epochs, file_name):
     # start w picked from normal distribution
     w_fix = np.random.normal(loc=0, scale=1, size=features)
-    w_fix2 = np.random.normal(loc=2, scale=1, size=features)
+    w_fix2 = np.random.normal(loc=0, scale=1, size=features)
 
-    norms = []
+    norms = [None]*int(points*epochs/nodes)
     x_list = []
     y_list = []
 
@@ -159,7 +155,7 @@ def create_dataset_custom2(points, features, noise, epochs, file_name):
         # increase w for 25% of an epoch
         for i in range(points):
             if epoch % 2 == 0:
-                 w = w_fix2
+                w = w_fix2
             else:
                 w = w_fix
             x = np.random.normal(loc=0, scale=1, size=features)
@@ -168,7 +164,7 @@ def create_dataset_custom2(points, features, noise, epochs, file_name):
             var = np.random.normal(loc=0, scale=noise)
 
             y_list.append(np.dot(x.T, w) + var)
-            norms.append([np.linalg.norm(w), points * epoch + i + 1])
+            norms[int((points * epoch + i) / nodes)] = ([np.linalg.norm(w), int((points * epoch + i + 1) / nodes)])
             k += 1
 
     for i in range(len(y_list)):

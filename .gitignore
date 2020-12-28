@@ -5,9 +5,6 @@
 /tests/exper.py
 /io_files/inputs/
 /tests/.ipynb_checkpoints/ex_visual-checkpoint.ipynb
-/gm_logs.log
-/fgm_logs
+/gm.log
+/fgm.log
 /gm_visual.ipynb
-/io_files/drift.csv
-/io_files/drift_norms.csv
-/io_files/fixed.csv

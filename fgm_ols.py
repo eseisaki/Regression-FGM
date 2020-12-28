@@ -2,7 +2,7 @@ from statistics import *
 import numpy as np
 import logging as log
 
-log.basicConfig(filename='fgm_logs',
+log.basicConfig(filename='fgm.log',
                 filemode='a',
                 format='%(asctime)s -- %(msecs)d %(name)s  %(levelname)16s %(message)s',
                 datefmt='%H:%M:%S',

@@ -96,6 +96,16 @@ def run_evaluation(c, isFix, norms):
 
     ROUNDS = np.concatenate((ROUNDS, r_epoch), axis=1)
 
+    # calculate output model norm
+    OUTPUT = []
+    for i in range(epoch.shape[0]):
+        OUTPUT.append(np.linalg.norm(w[i]))
+
+    OUTPUT = np.array(OUTPUT).reshape(-1, 1)
+    epoch_tmp = epoch.reshape(-1, 1)
+
+    OUTPUT = np.concatenate((OUTPUT, epoch_tmp), axis=1)
+
     # handle case for many rounds
     if int(w.shape[0]) > 3000:
         if const.EPOCH <= 1:
@@ -113,24 +123,6 @@ def run_evaluation(c, isFix, norms):
 
             w = np.array(w1 + w2 + w3)
             epoch = np.array(epoch1 + epoch2 + epoch3)
-        else:
-            #
-            # w_lst = w.tolist()
-            # w_newLst = []
-            # epoch_lst = epoch.tolist()
-            # epoch_newLst = []
-            #
-            # w_newLst.extend([w_lst[i:i + 2000] for i in range(0, len(w_lst), const.POINTS)])
-            # epoch_newLst.extend([epoch_lst[i:i + 2000] for i in range(0, len(epoch_lst), const.POINTS)])
-            #
-            # w=[]
-            # epoch=[]
-            # for i in range(const.EPOCH):
-            #     w.extend(w_newLst[i])
-            #     epoch.extend(epoch_newLst[i])
-            #
-            # w = np.array(w)
-            pass
 
     if isFix:
         # import test data
@@ -151,42 +143,28 @@ def run_evaluation(c, isFix, norms):
         # calculate accuracy of model
 
         MAE = []
-        # R = []
 
         for y in y_pred.T:
             MAE.append(mean_absolute_error(y_test, y))
-            # R.append(r2_score(y_test, y))
 
         MAE = np.array(MAE).reshape(-1, 1)
-        # R = np.array(R).reshape(-1, 1)
         epoch = epoch.reshape(-1, 1)
 
         MAE = np.concatenate((MAE, epoch), axis=1)
-        # R = np.concatenate((R, epoch), axis=1)
 
         f1 = open(const.START_FILE_NAME + "mae/" + const.MED_FILE_NAME + '.csv', "w")
-        # f2 = open(const.OUT_FILE + '_R.csv', "w")
 
         np.savetxt(f1, MAE, delimiter=',', newline='\n')
-        # np.savetxt(f2, R, delimiter=',', newline='\n')
 
         f1.close()
-        # f2.close()
 
     else:
-        print("Real model is", norms)
-        REGRET = []
-        for i in range(epoch.shape[0]):
-            REGRET.append(np.linalg.norm(w[i]))
+        # regret is plotted at visualization
+        pass
 
-        REGRET = np.array(REGRET).reshape(-1, 1)
-        epoch = epoch.reshape(-1, 1)
-
-        REGRET = np.concatenate((REGRET, epoch), axis=1)
-
-        f1 = open(const.START_FILE_NAME + "regret/" + const.MED_FILE_NAME + '.csv', "w")
-        np.savetxt(f1, REGRET, delimiter=',', newline='\n')
-        f1.close()
+    f2 = open(const.START_FILE_NAME + "output/" + const.MED_FILE_NAME + '.csv', "w")
+    np.savetxt(f2, OUTPUT, delimiter=',', newline='\n')
+    f2.close()
 
     f3 = open(const.START_FILE_NAME + "rounds/" + const.MED_FILE_NAME + '.csv', "w")
     np.savetxt(f3, ROUNDS, delimiter=',', newline='\n')

@@ -2,8 +2,9 @@ from statistics import *
 import numpy as np
 import sys
 import logging as log
+import csv
 
-log.basicConfig(filename='gm_logs.log',
+log.basicConfig(filename='gm.log',
                 filemode='a',
                 format='%(asctime)s -- %(levelname)s -- %(lineno)d:%(filename)s(%(process)d) - %(message)s',
                 datefmt='%H:%M:%S',
@@ -28,8 +29,12 @@ class Coordinator(Sender):
         self.w_global = None
         self.first = True
         self.counter = 0
-        self.sync_counter = 0
         self.round_counter = 0
+
+        list_size = int(const.TRAIN_POINTS / const.K)
+
+        self.w_list = [None] * list_size
+
         self.file = None
         self.file2 = None
         self.file3 = None
@@ -56,15 +61,14 @@ class Coordinator(Sender):
             # compute coefficients
             self.w_global = np.linalg.pinv(self.A_global).dot(self.c_global)
 
-            w_train = self.w_global.reshape(1, -1)
-            w_train = np.insert(w_train, w_train.shape[1], self.counter,
-                                axis=1)
+            w_train = self.w_global.reshape(11).tolist()
+            w_train.append(int(self.counter / const.K))
 
-            total_traffic = np.array([total_bytes(self.net), self.counter]).reshape(1, -1)
-            upstream_traffic = np.array([broadcast_bytes(self.net), self.counter]).reshape(1, -1)
+            total_traffic = np.array([total_bytes(self.net), int(self.counter / const.K)]).reshape(1, -1)
+            upstream_traffic = np.array([broadcast_bytes(self.net), int(self.counter / const.K)]).reshape(1, -1)
 
             # save coefficients
-            np.savetxt(self.file, w_train, delimiter=',', newline='\n')
+            self.w_list[int(self.counter / const.K)] = w_train
             np.savetxt(self.file2, total_traffic, delimiter=',', newline='\n')
             np.savetxt(self.file3, upstream_traffic, delimiter=',', newline='\n')
             self.incoming_channels = 0
@@ -232,8 +236,6 @@ def start_simulation(c):
 
         j = 0
 
-        # TODO:Check if this way of ditribution is malfunctional
-
         # gives a pair to each node
         for line in lines:
             # update the bar
@@ -261,7 +263,10 @@ def start_simulation(c):
         print("\n------------ RESULTS --------------")
         print("ROUNDS:", net.coord.round_counter)
 
-        f1.close()
+        w_list = [i for i in net.coord.w_list if i]
+        with open(const.OUT_FILE + ".csv", "w+", newline="") as f1:
+            writer = csv.writer(f1)
+            writer.writerows(w_list)
         f2.close()
         f3.close()
         f4.close()
