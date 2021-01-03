@@ -78,12 +78,12 @@ if __name__ == "__main__":
                                file_name=const.IN_FILE)
 
     elif new_dataset == 'drift':
-        norma = create_dataset_custom2(points=const.POINTS,
-                                       features=const.FEATURES,
-                                       nodes=const.K,
-                                       noise=const.VAR,
-                                       epochs=const.EPOCH,
-                                       file_name=const.IN_FILE)
+        norma = create_dataset_custom(points=const.POINTS,
+                                      features=const.FEATURES,
+                                      nodes=const.K,
+                                      noise=const.VAR,
+                                      epochs=const.EPOCH,
+                                      file_name=const.IN_FILE)
     else:
         raise Exception("new_dataset input is not valid")
 
@@ -105,4 +105,4 @@ if __name__ == "__main__":
     print("\n\nSECONDS: %2f" % (time.time() - start_time))
     duration = 2000  # milliseconds
     freq = 440  # Hz
-    winsound.Beep(freq, duration)
+    # winsound.Beep(freq, duration)

@@ -4,7 +4,7 @@ import sys
 import logging as log
 import csv
 
-log.basicConfig(filename='gm.log',
+log.basicConfig(filename='sim.log',
                 filemode='a',
                 format='%(asctime)s -- %(levelname)s -- %(lineno)d:%(filename)s(%(process)d) - %(message)s',
                 datefmt='%H:%M:%S',
@@ -27,20 +27,46 @@ class Coordinator(Sender):
         self.A_global = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
         self.c_global = np.zeros((const.FEATURES + 1, 1))
         self.w_global = None
-        self.first = True
+
         self.counter = 0
         self.round_counter = 0
 
         list_size = int(const.TRAIN_POINTS / const.K)
 
         self.w_list = [None] * list_size
-
-        self.file = None
+        # TODO: change total traffic and upstream traffic exporting as w
         self.file2 = None
         self.file3 = None
 
     def update_counter(self):
         self.counter += 1
+
+    def warm_up(self, msg):
+        A, c = msg
+
+        self.incoming_channels += 1
+
+        self.A_global = np.add(self.A_global, A)
+        self.c_global = np.add(self.c_global, c)
+
+        if self.incoming_channels == const.K:
+            self.A_global = self.A_global / const.K
+            self.c_global = self.c_global / const.K
+
+            # compute coefficients
+            self.w_global = np.linalg.pinv(self.A_global).dot(self.c_global)
+
+            self. incoming_channels = 0
+
+            if self.counter >= const.K * const.WARM:
+                A_copy = np.copy(self.A_global)
+                w_copy = np.copy(self.w_global)
+
+                self.A_global = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
+                self.c_global = np.zeros((const.FEATURES + 1, 1))
+                self.w_global = None
+
+                self.send("new_estimate", (A_copy, w_copy))
 
     def alert(self):
         self.send("send_data", None)
@@ -68,9 +94,10 @@ class Coordinator(Sender):
             upstream_traffic = np.array([broadcast_bytes(self.net), int(self.counter / const.K)]).reshape(1, -1)
 
             # save coefficients
-            self.w_list[int(self.counter / const.K)] = w_train
+            self.w_list[int(self.counter / const.K)-1] = w_train
             np.savetxt(self.file2, total_traffic, delimiter=',', newline='\n')
             np.savetxt(self.file3, upstream_traffic, delimiter=',', newline='\n')
+
             self.incoming_channels = 0
 
             A_copy = np.copy(self.A_global)
@@ -81,8 +108,6 @@ class Coordinator(Sender):
             self.w_global = None
 
             self.send("new_estimate", (A_copy, w_copy))
-
-            self.first = False
 
 
 ###############################################################################
@@ -104,7 +129,7 @@ class Site(Sender):
         self.A_global = None
         self.w_global = None
         self.win = Window(size=const.SIZE, step=const.STEP, points=const.TRAIN_POINTS)
-        self.init = True
+        self.warmup = True
 
     def new_stream(self, stream):
         # update window
@@ -113,12 +138,18 @@ class Site(Sender):
             new, old = next(res)
 
             self.update_state(new, old)
-            self.update_drift()
 
-            if self.init is True:
-                self.send("alert", None)
-                self.init = False
+            if self.warmup is True:
+                self.send("warm_up", (self.A, self.c))
+                if self.w_global is not None:
+                    self.warmup = False
+
+                    self.A_last = np.copy(self.A)
+                    self.c_last = np.copy(self.c)
+
             else:
+                self.update_drift()
+
                 A_in = np.linalg.pinv(self.A_global)
                 norm = np.linalg.norm
 
@@ -133,6 +164,7 @@ class Site(Sender):
                     self.send("alert", None)
 
         except StopIteration:
+            log.exeption("Window has failed.")
             pass
 
     def update_state(self, new, old):
@@ -164,7 +196,7 @@ class Site(Sender):
 
     def send_data(self):
         # send local state
-        log.info(f"Node {self.nid} sends its local drift,")
+        log.info(f"Node {self.nid} sends its local state,")
 
         self.A_last = np.copy(self.A)
         self.c_last = np.copy(self.c)
@@ -173,8 +205,6 @@ class Site(Sender):
         self.d = np.zeros((const.FEATURES + 1, 1))
 
         self.send("sync", (self.A_last, self.c_last))
-
-        log.info(f"Node {self.nid} has initialized its state to zero")
 
 
 ###############################################################################
@@ -188,7 +218,7 @@ def configure_system():
         n = StarNetwork(const.K, site_type=Site, coord_type=Coordinator)
 
         # add site and coordinator interfaces
-        ifc_coord = {"alert": True, "sync": True}
+        ifc_coord = {"alert": True, "sync": True, "warm_up": True}
         n.add_interface("coord", ifc_coord)
         ifc_site = {"new_estimate": True, "send_data": True}
         n.add_interface("site", ifc_site)
@@ -208,23 +238,22 @@ def configure_system():
 
 def start_simulation(c):
     log.info("START running start_simulation().")
-
     global const
     const = c
 
+    # configure network
     net = configure_system()
 
     if net is None:
         log.warn("Network is empty or incorrect.")
         return False
 
+    # configure I/O
     try:
-        f1 = open(const.OUT_FILE + ".csv", "w")
         f2 = open(const.IN_FILE + ".csv", "r")
         f3 = open(const.START_FILE_NAME + "traffic/" + const.MED_FILE_NAME + '.csv', "w")
         f4 = open(const.START_FILE_NAME + "upstream/" + const.MED_FILE_NAME + '.csv', "w")
 
-        net.coord.file = f1
         net.coord.file2 = f3
         net.coord.file3 = f4
 
@@ -260,6 +289,7 @@ def start_simulation(c):
 
         log.info(f"Rounds: {net.coord.round_counter}")
 
+        # print final output
         print("\n------------ RESULTS --------------")
         print("ROUNDS:", net.coord.round_counter)
 
@@ -267,9 +297,11 @@ def start_simulation(c):
         with open(const.OUT_FILE + ".csv", "w+", newline="") as f1:
             writer = csv.writer(f1)
             writer.writerows(w_list)
-        f2.close()
-        f3.close()
-        f4.close()
+
+            # close files
+            f2.close()
+            f3.close()
+            f4.close()
 
         log.info("END running start_simulation().")
 
