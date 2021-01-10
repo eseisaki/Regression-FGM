@@ -22,11 +22,15 @@ const = None
 
 def phi(x, E):
     if E is not None:
+
+        x = x.reshape(const.FEATURES + 1)
+        E = E.reshape(const.FEATURES + 1)
+
         norm_E = norm(E)
         if norm_E == 0:
             return float('inf')
 
-        a = -const.ERROR * norm_E - np.dot(x.T, E / norm_E)
+        a = -const.ERROR * norm_E - np.dot(x, E / norm_E)
         b = norm(np.add(x, E)) - (1 + const.ERROR) * norm_E
 
         return max(a, b)
@@ -43,20 +47,21 @@ def phi(x, E):
 class Coordinator(Sender):
     def __init__(self, net, nid, ifc):
         super().__init__(net, nid, ifc)
+        # ols variables
         self.A_global = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
         self.c_global = np.zeros((const.FEATURES + 1, 1))
-        self.w_global = None
+        # fgm variables
+        self.delta = np.zeros((const.FEATURES + 1, 1))
+        self.E = None
         self.c = 0
         self.psi = 0
         self.quantum = 0
+        # metric veriables
         self.counter = 0
         self.round_counter = 0
         self.subround_counter = 0
-
-        list_size = int(const.TRAIN_POINTS / const.K)
-
-        self.w_list = [None] * list_size
-        # FIXME: change total traffic and upstream traffic exporting as w
+        # output files
+        self.file = None
         self.file2 = None
         self.file3 = None
 
@@ -76,23 +81,20 @@ class Coordinator(Sender):
             self.c_global = self.c_global / const.K
 
             # compute coefficients
-            self.w_global = np.linalg.pinv(self.A_global).dot(self.c_global)
+            self.E = np.linalg.pinv(self.A_global).dot(self.c_global)
 
             self.incoming_channels = 0
 
             if self.counter >= const.K * const.WARM:
-                psi = const.K * phi(np.zeros((const.FEATURES + 1, 1)), self.w_global)
-                quantum = - psi / (2 * const.K)
-                self.c = 0
+                E_copy = np.copy(self.E)
 
-                self.round_counter += 1
-                self.send("begin_round", (self.w_global, quantum))
+                self.A_global = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
+                self.c_global = np.zeros((const.FEATURES + 1, 1))
+
+                self.send("begin_round", E_copy)
 
     # -------------------------------------------------------------------------
     # REMOTE METHODS
-    def init_estimate(self):
-        self.send("send_drift", None)
-
     def handle_increment(self, increment):
         self.c += increment
 
@@ -108,12 +110,15 @@ class Coordinator(Sender):
         # wait for every node to send zeta
         if self.incoming_channels == const.K:
             self.incoming_channels = 0
-            con = 0.01 * const.K * phi(np.zeros((const.FEATURES + 1, 1)), self.w_global)
+            con = 0.01 * const.K * phi(np.zeros((const.FEATURES + 1, 1)), self.E)
             log.info(f"{self.psi} compares with {con}")
 
             if self.psi >= con:
                 self.round_counter += 1
                 self.subround_counter += 1
+                self.c = 0
+                self.psi = 0
+
                 self.send("send_drift", None)
             else:
                 quantum = -self.psi / 2 * const.K
@@ -130,37 +135,33 @@ class Coordinator(Sender):
         self.A_global = np.add(self.A_global, A)
         self.c_global = np.add(self.c_global, c)
 
-        # wait for every node to send drift
         if self.incoming_channels == const.K:
+            self.incoming_channels = 0
+
             self.A_global = self.A_global / const.K
             self.c_global = self.c_global / const.K
 
-            log.info(f"New Round no {self.round_counter} at {self.counter}")
-            log.info(f"New Subround  no {self.subround_counter} at {self.counter}")
+            self.round_counter += 1
+            self.subround_counter += 1
 
-            self.w_global = np.linalg.pinv(self.A_global).dot(self.c_global)
+            # compute coefficients
+            self.E = np.linalg.pinv(self.A_global).dot(self.c_global)
 
-            w_train = self.w_global.reshape(11).tolist()
-            w_train.append(int(self.counter / const.K))
+            w_train = self.E.reshape(1, -1)
+            w_train = np.insert(w_train, w_train.shape[1], self.counter, axis=1)
 
             total_traffic = np.array([total_bytes(self.net), self.counter]).reshape(1, -1)
             upstream_traffic = np.array([broadcast_bytes(self.net), self.counter]).reshape(1, -1)
 
             # save coefficients
-            self.w_list[int(self.counter / const.K) - 1] = w_train
+            np.savetxt(self.file, w_train, delimiter=',', newline='\n')
             np.savetxt(self.file2, total_traffic, delimiter=',', newline='\n')
             np.savetxt(self.file3, upstream_traffic, delimiter=',', newline='\n')
 
             self.A_global = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
             self.c_global = np.zeros((const.FEATURES + 1, 1))
 
-            self.incoming_channels = 0
-            self.psi = 0
-            self.c = 0
-            psi = const.K * phi(np.zeros((const.FEATURES + 1, 1)), self.w_global)
-            quantum = - psi / (2 * const.K)
-
-            self.send("begin_round", (self.w_global, quantum))
+            self.send("begin_round", self.E)
 
 
 ###############################################################################
@@ -172,24 +173,25 @@ class Coordinator(Sender):
 class Site(Sender):
     def __init__(self, net, nid, ifc):
         super().__init__(net, nid, ifc)
+        # ols variables
         self.D = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
         self.d = np.zeros((const.FEATURES + 1, 1))
         self.A = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
         self.c = np.zeros((const.FEATURES + 1, 1))
         self.A_last = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
         self.c_last = np.zeros((const.FEATURES + 1, 1))
-
-        self.w = np.zeros((const.FEATURES + 1, 1))
-        self.w_global = None
-        self.win = Window(size=const.SIZE, step=const.STEP, points=const.TRAIN_POINTS)
-
+        self.X = np.zeros((const.FEATURES + 1, 1))
+        # fgm variables
+        self.delta = np.zeros((const.FEATURES + 1, 1))
+        self.E = None
         self.quantum = 0
         self.count = 0
         self.increment = 0
         self.zeta = 0
-        self.epoch = 0
-
+        self.last_zeta = 0
+        # algo variables
         self.warmup = True
+        self.win = Window(size=const.SIZE, step=const.STEP, points=const.TRAIN_POINTS)
 
     def new_stream(self, stream):
         # update window
@@ -201,7 +203,7 @@ class Site(Sender):
 
             if self.warmup is True:
                 self.send("warm_up", (self.A, self.c))
-                if self.w_global is not None:
+                if self.E is not None:
                     self.warmup = False
 
                     self.A_last = np.copy(self.A)
@@ -232,12 +234,19 @@ class Site(Sender):
         self.D = np.subtract(self.A, self.A_last)
         self.d = np.subtract(self.c, self.c_last)
 
+        self.delta = np.linalg.pinv(self.D).dot(self.d)
+
+        self.X = np.add(self.X, self.delta)
+
     def subround_process(self):
 
-        self.w = np.linalg.pinv(self.D).dot(self.d)
+        self.last_zeta = phi(self.X, self.E)
 
-        a = phi(self.w, self.w_global)
-        count_i = np.floor((a - self.zeta) / self.quantum)
+        log.info(f"current psi: {self.last_zeta}")
+        log.info(f"zeta: {self.zeta}")
+        log.info(f"quantum: {self.quantum}")
+        count_i = np.floor((self.last_zeta - self.zeta) / self.quantum)
+        log.info(f"new counter: {count_i}")
 
         if count_i > self.count:
             self.increment = count_i - self.count
@@ -252,34 +261,32 @@ class Site(Sender):
     # -------------------------------------------------------------------------
     # REMOTE METHOD
     def begin_round(self, msg):
-        # save new estimate
-        w_global, theta = msg
-        self.w_global = np.copy(w_global)
-        self.quantum = theta
-        # new subround
-        self.zeta = phi(np.zeros((const.FEATURES + 1, 1)), w_global)
+        # save received global estimate
+
+        self.E = msg
+        self.X = np.copy(self.E)
+        log.info(f"estimate:{np.linalg.norm(self.E)}")
+        self.last_zeta = const.K * phi(np.zeros((const.FEATURES + 1, 1)), self.E)
+        self.quantum = - self.last_zeta / 2 * const.K
         self.count = 0
 
-        # [DEBUGGING] Check if  self.D = array of zeros
+        self.zeta = self.last_zeta
+
         if self.quantum < 0 or self.zeta > 0:
             log.error(f"Assert violation: zeta = {self.zeta}, quantum = {self.quantum}")
 
-    def begin_subround(self, theta):
+    def begin_subround(self, msg):
         self.count = 0
-        self.quantum = theta
+        self.quantum = msg
 
-        self.zeta = phi(self.w, self.w_global)
-
-        if self.quantum < 0 or self.zeta > 0:
-            log.error(f"Assert violation: zeta = {self.zeta}, quantum = {self.quantum}")
+        self.zeta = self.last_zeta
 
     def send_zeta(self):
-        current_zeta = phi(self.w, self.w_global)
-        self.send("handle_zetas", current_zeta)
+        self.last_zeta = phi(self.X, self.E)
+        self.send("handle_zetas", self.last_zeta)
 
     def send_drift(self):
-        # send local state
-        log.info(f"Node {self.nid} sends its local state,")
+        log.info(f"Node {self.nid} sends its local drift.")
 
         self.A_last = np.copy(self.A)
         self.c_last = np.copy(self.c)
@@ -302,8 +309,7 @@ def configure_system():
 
         # add site and coordinator interfaces
         ifc_coord = {"handle_increment": True,
-                     "handle_zetas": True, "handle_drifts": True,
-                     "init_estimate": True, "warm_up": True}
+                     "handle_zetas": True, "handle_drifts": True, "warm_up": True}
         n.add_interface("coord", ifc_coord)
         ifc_site = {"begin_round": True, "begin_subround": True, "send_zeta": True, "send_drift": True}
         n.add_interface("site", ifc_site)
@@ -317,7 +323,6 @@ def configure_system():
 
         return n
     except TypeError:
-        log.getlog("ERROR")
         log.exception("Exception while initializing network.")
 
 
@@ -335,10 +340,12 @@ def start_simulation(c):
 
     # configure I/O
     try:
+        f1 = open(const.OUT_FILE + '.csv', "w")
         f2 = open(const.IN_FILE + '.csv', "r")
         f3 = open(const.START_FILE_NAME + "traffic/" + const.MED_FILE_NAME + '.csv', "w")
         f4 = open(const.START_FILE_NAME + "upstream/" + const.MED_FILE_NAME + '.csv', "w")
 
+        net.coord.file = f1
         net.coord.file2 = f3
         net.coord.file3 = f4
 
@@ -380,12 +387,8 @@ def start_simulation(c):
         print("SUBROUNDS:", net.coord.subround_counter)
         print("ROUNDS:", net.coord.round_counter)
 
-        w_list = [i for i in net.coord.w_list if i]
-        with open(const.OUT_FILE + ".csv", "w+", newline="") as f1:
-            writer = csv.writer(f1)
-            writer.writerows(w_list)
-
         # close files
+        f1.close()
         f2.close()
         f3.close()
         f4.close()

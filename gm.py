@@ -31,10 +31,11 @@ class Coordinator(Sender):
         self.counter = 0
         self.round_counter = 0
 
-        list_size = int(const.TRAIN_POINTS / const.K)
+        #list_size = int(const.TRAIN_POINTS / const.K)
 
-        self.w_list = [None] * list_size
+        #self.w_list = [None] * list_size
         # TODO: change total traffic and upstream traffic exporting as w
+        self.file = None
         self.file2 = None
         self.file3 = None
 
@@ -87,14 +88,19 @@ class Coordinator(Sender):
             # compute coefficients
             self.w_global = np.linalg.pinv(self.A_global).dot(self.c_global)
 
-            w_train = self.w_global.reshape(11).tolist()
-            w_train.append(int(self.counter / const.K))
+            w_train = self.w_global.reshape(1, -1)
+            w_train = np.insert(w_train, w_train.shape[1], self.counter, axis=1)
+            #w_train = self.w_global.reshape(11).tolist()
+            #w_train.append(int(self.counter / const.K))
 
-            total_traffic = np.array([total_bytes(self.net), int(self.counter / const.K)]).reshape(1, -1)
-            upstream_traffic = np.array([broadcast_bytes(self.net), int(self.counter / const.K)]).reshape(1, -1)
+            total_traffic = np.array([total_bytes(self.net), self.counter]).reshape(1, -1)
+            upstream_traffic = np.array([broadcast_bytes(self.net), self.counter]).reshape(1, -1)
+            # total_traffic = np.array([total_bytes(self.net), int(self.counter / const.K)]).reshape(1, -1)
+            # upstream_traffic = np.array([broadcast_bytes(self.net), int(self.counter / const.K)]).reshape(1, -1)
 
             # save coefficients
-            self.w_list[int(self.counter / const.K)-1] = w_train
+            np.savetxt(self.file, w_train, delimiter=',', newline='\n')
+            # self.w_list[int(self.counter / const.K)-1] = w_train
             np.savetxt(self.file2, total_traffic, delimiter=',', newline='\n')
             np.savetxt(self.file3, upstream_traffic, delimiter=',', newline='\n')
 
@@ -250,10 +256,12 @@ def start_simulation(c):
 
     # configure I/O
     try:
+        f1 = open(const.OUT_FILE + ".csv", "w")
         f2 = open(const.IN_FILE + ".csv", "r")
         f3 = open(const.START_FILE_NAME + "traffic/" + const.MED_FILE_NAME + '.csv', "w")
         f4 = open(const.START_FILE_NAME + "upstream/" + const.MED_FILE_NAME + '.csv', "w")
 
+        net.coord.file = f1
         net.coord.file2 = f3
         net.coord.file3 = f4
 
@@ -293,15 +301,16 @@ def start_simulation(c):
         print("\n------------ RESULTS --------------")
         print("ROUNDS:", net.coord.round_counter)
 
-        w_list = [i for i in net.coord.w_list if i]
-        with open(const.OUT_FILE + ".csv", "w+", newline="") as f1:
-            writer = csv.writer(f1)
-            writer.writerows(w_list)
+        f1.close()
+        # w_list = [i for i in net.coord.w_list if i]
+        # with open(const.OUT_FILE + ".csv", "w+", newline="") as f1:
+        #     writer = csv.writer(f1)
+        #     writer.writerows(w_list)
 
             # close files
-            f2.close()
-            f3.close()
-            f4.close()
+        f2.close()
+        f3.close()
+        f4.close()
 
         log.info("END running start_simulation().")
 

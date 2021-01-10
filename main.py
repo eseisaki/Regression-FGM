@@ -78,7 +78,7 @@ if __name__ == "__main__":
                                file_name=const.IN_FILE)
 
     elif new_dataset == 'drift':
-        norma = create_dataset_custom(points=const.POINTS,
+        norma = create_dataset_custom2(points=const.POINTS,
                                       features=const.FEATURES,
                                       nodes=const.K,
                                       noise=const.VAR,

@@ -96,7 +96,7 @@ def create_dataset_custom(points,nodes, features, noise, epochs, file_name):
     # start w picked from normal distribution
     w_fix = np.random.normal(loc=0, scale=1, size=features)
 
-    norms = [None]*int(points*epochs/nodes)
+    norms = [None]*int(points*epochs)
     x_list = []
     y_list = []
 
@@ -119,7 +119,7 @@ def create_dataset_custom(points,nodes, features, noise, epochs, file_name):
             var = np.random.normal(loc=0, scale=noise)
 
             y_list.append(np.dot(x.T, w) + var)
-            norms[int((points * epoch + i) / nodes)] = ([np.linalg.norm(w), int((points * epoch + i + 1) / nodes)])
+            norms[(points * epoch + i)] = ([np.linalg.norm(w), (points * epoch + i + 1) ])
             k += 1
 
     for i in range(len(y_list)):
@@ -141,11 +141,14 @@ def create_dataset_custom(points,nodes, features, noise, epochs, file_name):
 
 
 def create_dataset_custom2(points, nodes, features, noise, epochs, file_name):
+
+    np.random.seed(0)
+
     # start w picked from normal distribution
     w_fix = np.random.normal(loc=0, scale=1, size=features)
-    w_fix2 = np.random.normal(loc=0, scale=1, size=features)
+    w_fix2 = np.random.normal(loc=5, scale=1, size=features)
 
-    norms = [None]*int(points*epochs/nodes)
+    norms = [None]*(points*epochs)
     x_list = []
     y_list = []
 
@@ -164,7 +167,7 @@ def create_dataset_custom2(points, nodes, features, noise, epochs, file_name):
             var = np.random.normal(loc=0, scale=noise)
 
             y_list.append(np.dot(x.T, w) + var)
-            norms[int((points * epoch + i) / nodes)] = ([np.linalg.norm(w), int((points * epoch + i + 1) / nodes)])
+            norms[(points * epoch + i)] = ([np.linalg.norm(w), points * epoch + i + 1])
             k += 1
 
     for i in range(len(y_list)):
