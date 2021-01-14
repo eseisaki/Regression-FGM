@@ -1,11 +1,15 @@
 from statistics import *
-import constants as const
 import numpy as np
-from sklearn import linear_model
-from colorama import Fore, Back, Style
-import time
-import winsound
-import sys
+import logging as log
+import csv
+
+log.basicConfig(filename='sim.log',
+                filemode='a',
+                format='%(asctime)s -- %(levelname)s -- %(lineno)d:%(filename)s(%(process)d) - %(message)s',
+                datefmt='%H:%M:%S',
+                level=log.INFO)
+
+log.getLogger('fgm_ols.py')
 
 ###############################################################################
 #
@@ -13,13 +17,25 @@ import sys
 #
 ###############################################################################
 norm = np.linalg.norm
+const = None
 
 
 def phi(x, E):
-    a = -const.ERROR * norm(E) - np.dot(x.T, E / norm(E))
-    b = norm(np.add(x, E)) - (1 + const.ERROR) * norm(E)
+    if E is not None:
 
-    return float(max(a, b))
+        x = x.reshape(const.FEATURES + 1)
+        E = E.reshape(const.FEATURES + 1)
+
+        norm_E = norm(E)
+        if norm_E == 0:
+            return float('inf')
+
+        a = -const.ERROR * norm_E - np.dot(x, E / norm_E)
+        b = norm(np.add(x, E)) - (1 + const.ERROR) * norm_E
+
+        return max(a, b)
+    else:
+        log.error("Global estimate has no  acceptable value.")
 
 
 ###############################################################################
@@ -31,123 +47,64 @@ def phi(x, E):
 class Coordinator(Sender):
     def __init__(self, net, nid, ifc):
         super().__init__(net, nid, ifc)
-        self.w_global = np.zeros((const.FEATURES + 1, 1))
-        self.c = 0
-        self.psi = 0
-        self.quantum = 0
+        self.c_global = 0
         self.counter = 0
-        self.sub_counter = -10 * const.K
-        self.round_counter = 0
-        self.subround_counter = 0
-        self.d_global = np.zeros((const.FEATURES + 1, 1))
+        self.psi = 0
+        self.incoming_channels = 0
+        self.E_global = np.zeros((const.FEATURES + 1, 1))
+        self.X_sum = np.zeros((const.FEATURES + 1, 1))
+        self.S_sum = np.zeros((const.FEATURES + 1, 1))
 
     def update_counter(self):
         self.counter += 1
 
+        self.S_sum = np.add(self.S_sum, s)
+
+    def warm_up(self, S):
+        self.incoming_channels += 1
+        self.X_sum = np.zeros((const.FEATURES + 1, 1))
+
+        if self.incoming_channels == const.K:
+            self.E_global = self.S_sum / const.K
+
+            if self.counter >= const.K * const.WARM:
+                self.send("begin_round", self.E_global)
+
     # -------------------------------------------------------------------------
     # REMOTE METHODS
-
-    def init_estimate(self):
-        if const.DEBUG: print(Fore.GREEN,
-                              "Coordinator asks drifts from every node",
-                              Style.RESET_ALL)
-        self.send("send_drift", None)
-
     def handle_increment(self, increment):
-        if self.sub_counter <= self.counter < self.sub_counter + const.K:
-            if const.DEBUG: print(Fore.RED + "Coordinator ignores this alert",
-                                  Style.RESET_ALL)
-        else:
-            self.sub_counter = self.counter
+        self.c_global = self.c_global + increment
 
-            self.c += increment
-
-            if self.c > const.K:
-                self.psi = 0
-                self.c = 0
-                if const.DEBUG: print(Fore.GREEN,
-                                      "Coordinator asks zetas from every node",
-                                      Style.RESET_ALL)
-
-                if const.TEST is False:
-                    self.send("send_zeta", None)
+        if self.c > const.K:
+            self.send("send_zeta", None)
 
     def handle_zetas(self, zeta):
         self.incoming_channels += 1
+        self.psi = self.psi + zeta
 
-        self.psi += zeta
-
-        # wait for every node to send zeta
         if self.incoming_channels == const.K:
-            if const.DEBUG: print(Back.CYAN, Fore.BLACK, self.psi,
-                                  Style.RESET_ALL)
-
             self.incoming_channels = 0
 
-            con = 0.01 * const.K * phi(np.zeros((const.FEATURES + 1, 1)),
-                                       self.w_global)
-
-            if const.DEBUG: print(Back.GREEN, Fore.BLACK, con, Style.RESET_ALL)
-
-            if self.psi >= con:
+            if self.psi >= 0.01 * const.K * phi(np.zeros((const.FEATURES + 1, 1)), self.E):
+                self.psi = 0
                 self.send("send_drift", None)
-
-                if const.DEBUG: print(
-                    Fore.GREEN + "Coordinator asks drifts from every node",
-                    Style.RESET_ALL)
-
             else:
+                self.c_global = 0
+                self.send("begin_subround", - self.psi / 2 * const.K)
 
-                self.subround_counter += 1
-
-                if const.DEBUG: print(Back.CYAN, Fore.BLACK, "SUBROUND",
-                                      self.subround_counter,
-                                      "--SYNC TIME:", self.counter, "--",
-                                      Style.RESET_ALL)
-
-                self.send("begin_subround", (-self.psi / 2 * const.K))
-                if const.DEBUG: print(
-                    Fore.GREEN + "Coordinator sends theta and starts new "
-                                 "subround", Style.RESET_ALL)
-
-        self.psi = 0
-
-    def handle_drifts(self, d):
+    def handle_drifts(self, X):
         self.incoming_channels += 1
 
-        self.d_global = np.add(self.d_global, d / const.K)
+        self.X_sum = np.add(self.X_sum, X)
 
-        if const.DEBUG: print(Fore.YELLOW, "Coordinator aggregates estimate.",
-                              Style.RESET_ALL)
-
-        # wait for every node to send drift
         if self.incoming_channels == const.K:
-            self.round_counter += 1
-
             self.incoming_channels = 0
+            self.X_sum = 0
 
-            self.w_global = np.add(self.w_global, self.d_global)
-            self.d_global = np.zeros((const.FEATURES + 1, 1))
+            self.E_global = np.add(self.E_global, self.X_sum / const.K)
+            self.c_global = 0
 
-            w_train = self.w_global.reshape(1, -1)
-            w_train = np.insert(w_train, w_train.shape[1],
-                                self.counter - const.K,
-                                axis=1)
-
-            if const.DEBUG: print(Back.RED, Fore.BLACK, "ROUND",
-                                  self.round_counter,
-                                  "--SYNC TIME:", self.counter, "--",
-                                  Style.RESET_ALL)
-
-            # save coefficients
-            if const.TEST is False:
-                np.savetxt(f1, w_train, delimiter=',', newline='\n')
-
-            if const.DEBUG: print(Fore.GREEN,
-                                  "Coordinator sends new estimate and"
-                                  "starts new round.", Style.RESET_ALL)
-
-            self.send("begin_round", self.w_global)
+            self.send("begin_round", self.E_global)
 
 
 ###############################################################################
@@ -159,126 +116,90 @@ class Coordinator(Sender):
 class Site(Sender):
     def __init__(self, net, nid, ifc):
         super().__init__(net, nid, ifc)
-        self.x_full = []
-        self.y_full = []
-        self.d = np.zeros((const.FEATURES + 1, 1))
-        self.last_w = np.zeros((const.FEATURES + 1, 1))
-        self.w = np.zeros((const.FEATURES + 1, 1))
-        self.w_global = None
-        self.quantum = 0
-        self.c = 0
-        self.increment = 0
+        self.warmup = True
+        self.A = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
+        self.c = np.zeros((const.FEATURES + 1, 1))
+        self.S = np.zeros((const.FEATURES + 1, 1))
+        self.E = np.zeros((const.FEATURES + 1, 1))
+        self.X = np.zeros((const.FEATURES + 1, 1))
+        self.E_global = None
         self.zeta = 0
-        self.last_zeta = 0
-        self.warm_up = 0
-        self.epoch = 0
-        self.win = Window(size=const.SIZE, step=const.STEP,
-                          points=const.POINTS)
+        self.theta = 0
+        self.counter = 0
+        self.increment = 0
 
-        self.reg = linear_model.SGDRegressor(max_iter=10000, verbose=0,
-                                             eta0=0.01)
-        self.init = True
+        self.win = Window(size=const.SIZE, step=const.STEP, points=const.TRAIN_POINTS)
 
     def new_stream(self, stream):
-
-        # update window
         try:
-            res = self.win.update(stream)
+            res = self.win.state(stream)
             new, old = next(res)
-            # update state
+
             self.update_state(new, old)
 
-            # update drift
-            self.d = self.w - self.last_w
+            if self.warmup is True:
+                self.send("warm_up", self.S)
+                if self.E_global is not None:
+                    self.warmup = False
 
-            if self.w_global is None:
-                if const.DEBUG: print(Fore.RED + "Node", self.nid,
-                                      "sends init drift.",
-                                      Style.RESET_ALL)
-                self.send("init_estimate", None)
-                self.init = False
-            self.subround_process()
+            self.update_drift()
 
         except StopIteration:
-            pass
+            log.exeption("Window has failed.")
 
     def update_state(self, new, old):
-        if const.DEBUG: print("Node", self.nid, "updates local state and "
-                                                "local drift.")
-
         for x, y in new:
-            self.x_full.append(x)
-            self.y_full.append(y)
+            x = x.reshape(-1, 1)
+            ml1 = x.dot(x.T)
+            self.A = np.add(self.A, ml1)
+            ml2 = x.dot(y)
+            self.c = np.add(self.c, ml2)
 
         for x, y in old:
-            self.x_full.pop(0)
-            self.y_full.pop(0)
+            x = x.reshape(-1, 1)
+            ml1 = x.dot(x.T)
+            self.A = np.subtract(self.A, ml1)
+            ml2 = x.dot(y)
+            self.c = np.subtract(self.c, ml2)
 
-        self.reg.partial_fit(self.x_full, self.y_full)
+            self.S = np.linalg.pinv(self.A).dot(self.c)
 
-        intercept = self.reg.intercept_
-        w = self.reg.coef_
-        w = np.insert(w, 0, intercept, axis=0)
-        self.w = w.reshape(-1, 1)
+    def update_drift(self):
+        self.X = np.subtract(self.S, self.E)
 
     def subround_process(self):
-        a = (phi(self.d, self.w_global))
-        count_i = np.floor((a - self.zeta) / self.quantum)
-        count_i = max(self.c, count_i)
+        current_counter = np.floor((phi(self.X, self.E_global) - self.zeta) / self.theta)
 
-        if count_i > self.c:
-            self.increment = count_i - self.c
-            if const.DEBUG: print(Fore.YELLOW, "Local counter:",
-                                  self.increment,
-                                  Style.RESET_ALL)
-            self.c = count_i
-            if const.DEBUG: print(Fore.RED + "Node", self.nid,
-                                  "sends an increment msg.", Style.RESET_ALL)
+        if current_counter > self.counter:
+            self.increment = current_counter - self.counter
+            self.counter = current_counter
+
             self.send("handle_increment", self.increment)
 
     # -------------------------------------------------------------------------
     # REMOTE METHOD
-    def begin_round(self, w):
-        if const.DEBUG: print(Fore.CYAN, "Node", self.nid,
-                              "saves new global estimate and nullifies "
-                              " local drift.", Style.RESET_ALL)
+    def begin_round(self, E_global):
+        self.E_global = np.copy(E_global)
 
-        # save new estimate
-        self.w_global = w
-
-        # update drift = 0
-        self.d = np.zeros((const.FEATURES + 1, 1))
-
-        self.last_zeta = phi(self.d, self.w_global)
-
-        # calculate theta (2kθ = - Σzi)
-        self.quantum = - self.last_zeta / 2
-        self.c = 0
-        self.zeta = self.last_zeta
+        self.X = np.zeros((const.FEATURES + 1, 1))
+        self.zeta = phi(np.zeros((const.FEATURES + 1, 1)), self.E_global)
+        psi = const.K * self.zeta
+        self.theta = - psi / 2 * const.K
+        self.counter = 0
 
     def begin_subround(self, theta):
-        if const.DEBUG: print(Fore.CYAN, "Node", self.nid,
-                              "saves new quantum and nullifies c.",
-                              Style.RESET_ALL)
-        self.c = 0
-        self.quantum = theta
-        self.zeta = self.last_zeta
+        self.counter = 0
+        self.theta = theta
+        self.zeta = phi(self.X, self.E_global)
 
     def send_zeta(self):
-        self.last_zeta = phi(self.d, self.w_global)
-        if const.DEBUG: print(Fore.CYAN, "Node", self.nid, "sends its zeta.",
-                              self.last_zeta,
-                              Style.RESET_ALL)
-
-        self.send("handle_zetas", self.last_zeta)
+        self.send("handle_zetas", phi(self.X, self.E_global))
 
     def send_drift(self):
-        self.last_w = self.w
+        self.E = self.S
+        self.X = np.zeros((const.FEATURES + 1, 1))
 
-        if const.DEBUG: print(Fore.CYAN, "Node", self.nid, "sends its local "
-                                                           "drift.",
-                              Style.RESET_ALL)
-        self.send("handle_drifts", self.d)
+        self.send("handle_drifts", self.X)
 
 
 ###############################################################################
@@ -287,75 +208,99 @@ class Site(Sender):
 #
 ###############################################################################
 def configure_system():
-    # create a network object
-    n = StarNetwork(const.K, site_type=Site, coord_type=Coordinator)
+    try:
+        # create a network object
+        n = StarNetwork(const.K, site_type=Site, coord_type=Coordinator)
 
-    # add site and coordinator interfaces
-    ifc_coord = {"handle_increment": True,
-                 "handle_zetas": True, "handle_drifts": True,
-                 "init_estimate": True}
-    n.add_interface("coord", ifc_coord)
-    ifc_site = {"begin_round": True, "begin_subround": True, "send_zeta":
-        True, "send_drift": True}
-    n.add_interface("site", ifc_site)
+        # add site and coordinator interfaces
+        ifc_coord = {"handle_increment": True,
+                     "handle_zetas": True, "handle_drifts": True, "warm_up": True}
+        n.add_interface("coord", ifc_coord)
+        ifc_site = {"begin_round": True, "begin_subround": True, "send_zeta": True, "send_drift": True}
+        n.add_interface("site", ifc_site)
 
-    # create coord and k sites
-    n.add_coord("site")
-    n.add_sites(n.k, "coord")
+        # create coord and k sites
+        n.add_coord("site")
+        n.add_sites(n.k, "coord")
 
-    # set up all channels, proxies and endpoints
-    n.setup_connections()
+        # set up all channels, proxies and endpoints
+        n.setup_connections()
 
-    return n
+        return n
+    except TypeError:
+        log.exception("Exception while initializing network.")
 
 
-def start_synthetic_simulation():
+def start_simulation(c):
+    log.info("START running start_simulation().")
+    global const
+    const = c
+
+    # configure network
     net = configure_system()
 
-    f2 = open("tests/synthetic.csv", "r")
-    lines = f2.readlines()
+    if net is None:
+        log.warn("Network is empty or incorrect.")
+        return False
 
-    # setup toolbar
-    bar_percent = 0
-    line_counter = 0
+    # configure I/O
+    try:
+        f1 = open(const.OUT_FILE + '.csv', "w")
+        f2 = open(const.IN_FILE + '.csv', "r")
+        f3 = open(const.START_FILE_NAME + "traffic/" + const.MED_FILE_NAME + '.csv', "w")
+        f4 = open(const.START_FILE_NAME + "upstream/" + const.MED_FILE_NAME + '.csv', "w")
 
-    j = 0
-    for line in lines:
-        # update the bar
-        line_counter += 1
-        tmp_percent = int((line_counter / (const.POINTS * const.EPOCH)) * 100)
-        if tmp_percent > bar_percent:
-            bar_percent = tmp_percent
-            sys.stdout.write('\r')
-            sys.stdout.write(
-                "[%-100s] %d%%" % ('=' * bar_percent, bar_percent))
-            sys.stdout.flush()
+        net.coord.file = f1
+        net.coord.file2 = f3
+        net.coord.file3 = f4
 
-        if j == const.K:
-            j = 0
-        tmp = np.fromstring(line, dtype=float, sep=',')
-        x_train = tmp[1:const.FEATURES + 1]
-        y_train = tmp[const.FEATURES + 1]
+        lines = f2.readlines()
 
-        net.coord.update_counter()
-        net.sites[j].new_stream([(x_train, y_train)])
-        j += 1
+        # setup toolbar
+        bar_percent = 0
+        line_counter = 0
 
-    f2.close()
+        j = 0
 
-    print("\n------------ RESULTS --------------")
-    print("SUBROUNDS:", net.coord.subround_counter + net.coord.round_counter)
-    print("ROUNDS:", net.coord.round_counter)
+        # gives a pair to each node
+        for line in lines:
+            # update the bar
+            line_counter += 1
+            tmp_percent = int((line_counter / const.TRAIN_POINTS) * 100)
+            if tmp_percent > bar_percent:
+                bar_percent = tmp_percent
+                sys.stdout.write('\r')
+                sys.stdout.write(
+                    "[%-100s] %d%%" % ('=' * bar_percent, bar_percent))
+                sys.stdout.flush()
 
+            if j == const.K:
+                j = 0
+            tmp = np.fromstring(line, dtype=float, sep=',')
+            x_train = tmp[0:const.FEATURES + 1]
+            y_train = tmp[const.FEATURES + 1]
 
-if __name__ == "__main__":
-    start_time = time.time()
-    print("Start running, wait until finished:")
-    f1 = open("tests/fgm.csv", "w")
-    start_synthetic_simulation()
-    f1.close()
+            net.coord.update_counter()
+            net.sites[j].new_stream([(x_train, y_train)])
+            j += 1
 
-    print("SECONDS: %s" % (time.time() - start_time))
-    duration = 2000  # milliseconds
-    freq = 440  # Hz
-    winsound.Beep(freq, duration)
+        log.info(f"Subrounds: {net.coord.subround_counter}")
+        log.info(f"Rounds: {net.coord.round_counter}")
+
+        # print final output
+        print("\n------------ RESULTS --------------")
+        print("SUBROUNDS:", net.coord.subround_counter)
+        print("ROUNDS:", net.coord.round_counter)
+
+        # close files
+        f1.close()
+        f2.close()
+        f3.close()
+        f4.close()
+
+        log.info("END running start_simulation().")
+
+        return True
+
+    except OSError:
+        log.exception("Exception while opening files.")
