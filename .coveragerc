@@ -1,0 +1,2 @@
+[run]
+omit = fgm_test.py, gm_test.py, __init__.py, tools_test.py, math_test.py

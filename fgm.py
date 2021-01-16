@@ -141,8 +141,9 @@ class Site(Sender):
                 self.send("warm_up", self.S)
                 if self.E_global is not None:
                     self.warmup = False
-
-            self.update_drift()
+            else:
+                self.update_drift()
+                self.subround_process()
 
         except StopIteration:
             log.exeption("Window has failed.")

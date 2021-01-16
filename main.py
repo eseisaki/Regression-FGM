@@ -1,6 +1,5 @@
 from gm import start_simulation as gm_sim
 from fgm_ols import start_simulation as fgm_sim
-from centralized import start_simulation as central_sim
 from data_evaluation import run_evaluation as evaluate
 from constants import Constants
 from dataset import create_dataset, create_dataset_custom2, create_dataset_custom
@@ -51,19 +50,19 @@ if __name__ == "__main__":
 
     # Update constants:
     const = Constants(points=args.points,
-                      epoch=args.epoch,
-                      var=args.var,
-                      k=args.k,
-                      features=args.features,
-                      error=args.error,
-                      vper=0 if args.new_dataset == "drift" else args.vper,
-                      win_size=args.win_size,
-                      win_step=args.win_step,
-                      test=args.test,
-                      debug=args.debug,
-                      in_file=args.in_file,
-                      med_name=args.med_name,
-                      start_name=args.start_name)
+                     epoch=args.epoch,
+                     var=args.var,
+                     k=args.k,
+                     features=args.features,
+                     error=args.error,
+                     vper=0 if args.new_dataset == "drift" else args.vper,
+                     win_size=args.win_size,
+                     win_step=args.win_step,
+                     test=args.test,
+                     debug=args.debug,
+                     in_file=args.in_file,
+                     med_name=args.med_name,
+                     start_name=args.start_name)
     # Choose dataset
     new_dataset = args.new_dataset
     norma = None
@@ -89,17 +88,15 @@ if __name__ == "__main__":
 
     start_time = time.time()
     print("Start running, wait until finished:")
+
     if choice == 1:
-        central_sim(const)
-        evaluate(const, (const.EPOCH <= 1), norma)
-    elif choice == 2:
         # const.ERROR = norma*const.ERROR
         if gm_sim(const):
             evaluate(const, (const.EPOCH <= 1), norma)
-    elif choice == 3:
+    elif choice == 2:
         fgm_sim(const)
         evaluate(const, (const.EPOCH <= 1), norma)
-    elif choice == 4:
+    elif choice == 3:
         evaluate(const, (const.EPOCH <= 1), norma)
 
     print("\n\nSECONDS: %2f" % (time.time() - start_time))

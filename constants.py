@@ -9,7 +9,6 @@ import sys
 ###############################################################################
 
 class Constants:
-
     def __init__(self, points: int, epoch: int, var: float, k: int, features: int, error: float, vper: float,
                  win_size: int, win_step: int, test: bool, debug: bool, in_file: str, med_name: str, start_name: str):
         self.K = k  # no of nodes
@@ -27,6 +26,6 @@ class Constants:
         self.MED_FILE_NAME = med_name
         self.START_FILE_NAME = start_name
         self.OUT_FILE = self.START_FILE_NAME + med_name
-        self.WARM = 1
+        self.WARM = 10
 
         self.TRAIN_POINTS = self.EPOCH * (1 - self.VPER) * self.POINTS
