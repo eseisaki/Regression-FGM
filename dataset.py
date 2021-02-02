@@ -146,7 +146,7 @@ def create_dataset_custom2(points, nodes, features, noise, epochs, file_name):
 
     # start w picked from normal distribution
     w_fix = np.random.normal(loc=0, scale=1, size=features)
-    w_fix2 = np.random.normal(loc=10, scale=1, size=features)
+    w_fix2 = np.random.normal(loc=2, scale=1, size=features)
 
     norms = [None]*(points*epochs)
     x_list = []

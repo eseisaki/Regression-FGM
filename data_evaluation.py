@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import csv
 from sklearn.metrics import r2_score, mean_absolute_error
 from sklearn.linear_model import LinearRegression
@@ -52,7 +53,7 @@ def mean_absolute_percentage_error(test_y, pred_y):
     return np.mean(np.abs((test_y - pred_y) / pred_y)) * 100
 
 
-def import_data(file):
+def import_data_from_CSV(file):
     data = np.genfromtxt(file, delimiter=',')
 
     # count lines of csv
@@ -72,20 +73,100 @@ def import_data(file):
     return w, epoch
 
 
-def predict(x_test, model):
-    y_pred = np.dot(x_test, model.T)
-    return y_pred
+# def predictValue(x_test, model):
+#     y_pred = np.dot(x_test, model.T)
+#     return y_pred
+
+
+def get_rounds_with_epoch(epoch):
+    rounds = []
+    # epoch must be an nx1 array
+    for i in range(int(epoch.shape[0])):
+        rounds.appends(i + 1)
+    rounds = np.array(rounds).reshape(-1, 1)
+    roundsEpoch = epoch.reshape(-1, 1)
+
+    return np.concatenate((rounds, roundsEpoch), axis=1)
+
+
+def get_output_model_norm(w, epoch):
+    output = []
+    # w,epoch must be nx1 arrays
+    for i in range(epoch.shape[0]):
+        output.append(np.linalg.norm(w[i]))
+    output = np.array(output).reshape(-1, 1)
+    outputEpoch = epoch.reshape(-1, 1)
+
+    return np.concatenate((output, outputEpoch), axis=1)
+
+
+def handle_many_rounds(w, epoch):
+    if const.EPOCH <= 1:
+        w1 = w[0:1000, :].tolist()
+        epoch1 = epoch[0:1000].tolist()
+
+        full = int(w.shape[0]) - 1
+        half = int(full / 2)
+
+        w2 = w[half:half + 1000, :].tolist()
+        epoch2 = epoch[half:half + 1000].tolist()
+
+        w3 = w[full - 1000: full, :].tolist()
+        epoch3 = epoch[full - 1000: full].tolist()
+
+        w = np.array(w1 + w2 + w3)
+        epoch = np.array(epoch1 + epoch2 + epoch3)
+
+        return w, epoch
+
+
+def get_predict_value(y, yTest):
+    mae = []
+
+    for y in y_pred.T:
+        mae.append(mean_absolute_error(yTest, y))
+
+    mae = np.array(mae).reshape(-1, 1)
+    maeEpoch = epoch.reshape(-1, 1)
+
+    return np.concatenate((mae, maeEpoch), axis=1)
+
+
+def get_model_error(real_data, est_data):
+    # prepare dataframes
+    df1 = pd.DataFrame(real_data, columns=getColumnNames("w_real", features))
+    df2 = pd.DataFrame(est_data, columns=getColumnNames("w_est", features))
+    # outer join on 'time' column
+    mergedDf = pd.merge(df1, df2, on='time', how='outer')
+
+    subDf = mergedDf.filter(['time'], axis=1)
+
+    # calculate array with differences w_real - w_est
+    for i in range(features):
+        subDf["w_sub" + "_" + str(i)] = mergedDf["w_real" + "_" + str(i)] - mergedDf["w_est" + "_" + str(i)]
+    # calculate norm of w_real - w_est
+    return subDf.apply(np.linalg.norm, axis=1)
+
+
+def get_column_names(name: str, length):
+    columnNames = []
+
+    for j in range(length):
+        columnNames.append(name + "_" + str(j))
+
+    columnNames.append("time")
+    return columnNames
 
 
 def run_evaluation(c, isFix, norms):
     global const
     const = c
+    inputFile = const.IN_FILE
 
-    input_file = const.IN_FILE
     print("\nEvaluating training model....")
 
     # import model data
-    w, epoch = import_data(const.OUT_FILE + '.csv')
+    w, epoch = import_data_from_CSV(const.OUT_FILE + '.csv')
 
     # calculate rounds
     ROUNDS = []
@@ -107,45 +188,41 @@ def run_evaluation(c, isFix, norms):
     OUTPUT = np.concatenate((OUTPUT, epoch_tmp), axis=1)
 
     # handle case for many rounds
-    if int(w.shape[0]) > 3000:
-        if const.EPOCH <= 1:
-            w1 = w[0:1000, :].tolist()
-            epoch1 = epoch[0:1000].tolist()
+    if int(w.shape[0]) > const.TOTAL_ROUNDS_FOR_PREDICT and const.EPOCH <= 1:
+        w1 = w[0:1000, :].tolist()
+        epoch1 = epoch[0:1000].tolist()
 
-            full = int(w.shape[0]) - 1
-            half = int(full / 2)
+        full = int(w.shape[0]) - 1
+        half = int(full / 2)
 
-            w2 = w[half:half + 1000, :].tolist()
-            epoch2 = epoch[half:half + 1000].tolist()
+        w2 = w[half:half + 1000, :].tolist()
+        epoch2 = epoch[half:half + 1000].tolist()
 
-            w3 = w[full - 1000: full, :].tolist()
-            epoch3 = epoch[full - 1000: full].tolist()
+        w3 = w[full - 1000: full, :].tolist()
+        epoch3 = epoch[full - 1000: full].tolist()
 
-            w = np.array(w1 + w2 + w3)
-            epoch = np.array(epoch1 + epoch2 + epoch3)
+        w = np.array(w1 + w2 + w3)
+        epoch = np.array(epoch1 + epoch2 + epoch3)
 
     if isFix:
         # import test data
-        df_test = np.genfromtxt(input_file + '.csv', delimiter=',')
-        x_test = df_test[:, 1:const.FEATURES + 1]
-        y_test = df_test[:, const.FEATURES + 1]
+        dfTest = np.genfromtxt(inputFile + '.csv', delimiter=',')
+        xTest = dfTest[:, 1:const.FEATURES + 1]
+        yTest = dfTest[:, const.FEATURES + 1]
+
+        print("Make predictions using the testing set...")
 
         # output y_predict of given model
-        print("Make predictions using the testing set...")
-        coef = w[:, 1:const.FEATURES + 1]
-        inter = w[:, 0]
-
-        new_model = LinearPredictionModel(coef=coef, intercept=inter)
-        y_pred = new_model.predict(x_test)
-        # y_pred = predict(x_test, w)
+        newModel = LinearPredictionModel(coef=w[:, 1:const.FEATURES + 1], intercept=w[:, 0])
+        y_pred = newModel.predict(xTest)
 
         print("Calculating MAE and coefficient of determination(R^2)....")
-        # calculate accuracy of model
 
+        # calculate accuracy of model
         MAE = []
 
         for y in y_pred.T:
-            MAE.append(mean_absolute_error(y_test, y))
+            MAE.append(mean_absolute_error(yTest, y))
 
         MAE = np.array(MAE).reshape(-1, 1)
         epoch = epoch.reshape(-1, 1)
@@ -159,7 +236,7 @@ def run_evaluation(c, isFix, norms):
         f1.close()
 
     else:
-        # regret is plotted at visualization
+        # calculate model error
         pass
 
     f2 = open(const.START_FILE_NAME + "output/" + const.MED_FILE_NAME + '.csv', "w")

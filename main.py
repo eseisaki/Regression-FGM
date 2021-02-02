@@ -1,6 +1,7 @@
 from gm import start_simulation as gm_sim
-from fgm_ols import start_simulation as fgm_sim
-from data_evaluation import run_evaluation as evaluate
+from fgm_ols import start_simulation as fgm_ols
+from fgm import start_simulation as fgm
+import data_evaluation as eval
 from constants import Constants
 from dataset import create_dataset, create_dataset_custom2, create_dataset_custom
 import time
@@ -12,16 +13,6 @@ def boolean_string(s):
     if s not in {'False', 'True'}:
         raise ValueError('Not a valid boolean string')
     return s == 'True'
-
-
-def avg_error(norm):
-    if isinstance(norm, list):
-        sum_error = 0
-        for n in norm:
-            sum_error += n[0] * const.ERROR
-        return sum_error / const.EPOCH
-    else:
-        return norm * const.ERROR
 
 
 parser = argparse.ArgumentParser()
@@ -50,19 +41,20 @@ if __name__ == "__main__":
 
     # Update constants:
     const = Constants(points=args.points,
-                     epoch=args.epoch,
-                     var=args.var,
-                     k=args.k,
-                     features=args.features,
-                     error=args.error,
-                     vper=0 if args.new_dataset == "drift" else args.vper,
-                     win_size=args.win_size,
-                     win_step=args.win_step,
-                     test=args.test,
-                     debug=args.debug,
-                     in_file=args.in_file,
-                     med_name=args.med_name,
-                     start_name=args.start_name)
+                      epoch=args.epoch,
+                      var=args.var,
+                      k=args.k,
+                      features=args.features,
+                      error=args.error,
+                      vper=0 if args.new_dataset == "drift" else args.vper,
+                      win_size=args.win_size,
+                      win_step=args.win_step,
+                      test=args.test,
+                      debug=args.debug,
+                      in_file=args.in_file,
+                      med_name=args.med_name,
+                      start_name=args.start_name)
+
     # Choose dataset
     new_dataset = args.new_dataset
     norma = None
@@ -78,11 +70,11 @@ if __name__ == "__main__":
 
     elif new_dataset == 'drift':
         norma = create_dataset_custom2(points=const.POINTS,
-                                      features=const.FEATURES,
-                                      nodes=const.K,
-                                      noise=const.VAR,
-                                      epochs=const.EPOCH,
-                                      file_name=const.IN_FILE)
+                                       features=const.FEATURES,
+                                       nodes=const.K,
+                                       noise=const.VAR,
+                                       epochs=const.EPOCH,
+                                       file_name=const.IN_FILE)
     else:
         raise Exception("new_dataset input is not valid")
 
@@ -94,10 +86,13 @@ if __name__ == "__main__":
         if gm_sim(const):
             evaluate(const, (const.EPOCH <= 1), norma)
     elif choice == 2:
-        fgm_sim(const)
-        evaluate(const, (const.EPOCH <= 1), norma)
+        fgm_ols(const)
+        eval.run_evaluation(const, (const.EPOCH <= 1), norma)
     elif choice == 3:
-        evaluate(const, (const.EPOCH <= 1), norma)
+        fgm(const)
+        eval.run_evaluation(const, (const.EPOCH <= 1), norma)
+    elif choice == 4:
+        eval.run_evaluation(const, (const.EPOCH <= 1), norma)
 
     print("\n\nSECONDS: %2f" % (time.time() - start_time))
     duration = 2000  # milliseconds

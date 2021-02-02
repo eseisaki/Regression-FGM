@@ -28,7 +28,7 @@ def phi(x, E):
 
         norm_E = norm(E)
         if norm_E == 0:
-            return float('inf')
+            raise ValueError
 
         a = -const.ERROR * norm_E - np.dot(x, E / norm_E)
         b = norm(np.add(x, E)) - (1 + const.ERROR) * norm_E
@@ -36,6 +36,7 @@ def phi(x, E):
         return max(a, b)
     else:
         log.error("Global estimate has no  acceptable value.")
+        raise ValueError
 
 
 ###############################################################################
@@ -47,7 +48,7 @@ def phi(x, E):
 class Coordinator(Sender):
     def __init__(self, net, nid, ifc):
         super().__init__(net, nid, ifc)
-        self.c_global = 0
+        self.counter_global = 0
         self.counter = 0
         self.psi = 0
         self.incoming_channels = 0
@@ -55,27 +56,42 @@ class Coordinator(Sender):
         self.X_sum = np.zeros((const.FEATURES + 1, 1))
         self.S_sum = np.zeros((const.FEATURES + 1, 1))
 
+        self.A_global = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
+        self.c_global = np.zeros((const.FEATURES + 1, 1))
+
+        self.subround_counter = 0
+        self.round_counter = 0
+
+        self.file1 = None
+        self.file2 = None
+        self.file3 = None
+
     def update_counter(self):
         self.counter += 1
 
-        self.S_sum = np.add(self.S_sum, s)
-
-    def warm_up(self, S):
+    def warm_up(self, msg):
+        A, c = msg
         self.incoming_channels += 1
-        self.X_sum = np.zeros((const.FEATURES + 1, 1))
+        self.A_global = np.add(self.A_global, A)
+        self.c_global = np.add(self.c_global, c)
 
         if self.incoming_channels == const.K:
-            self.E_global = self.S_sum / const.K
+            self.incoming_channels = 0
+
+            self.A_global = self.A_global / const.K
+            self.c_global = self.c_global / const.K
 
             if self.counter >= const.K * const.WARM:
+                self.E_global = np.linalg.pinv(self.A_global).dot(self.c_global)
+
                 self.send("begin_round", self.E_global)
 
     # -------------------------------------------------------------------------
     # REMOTE METHODS
     def handle_increment(self, increment):
-        self.c_global = self.c_global + increment
+        self.counter_global = self.counter_global + increment
 
-        if self.c > const.K:
+        if self.counter_global > const.K:
             self.send("send_zeta", None)
 
     def handle_zetas(self, zeta):
@@ -85,11 +101,17 @@ class Coordinator(Sender):
         if self.incoming_channels == const.K:
             self.incoming_channels = 0
 
-            if self.psi >= 0.01 * const.K * phi(np.zeros((const.FEATURES + 1, 1)), self.E):
+            if self.psi >= 0.01 * const.K * phi(np.zeros((const.FEATURES + 1, 1)), self.E_global):
                 self.psi = 0
+
+                self.round_counter += 1
+                self.subround_counter += 1
+
                 self.send("send_drift", None)
             else:
-                self.c_global = 0
+                self.subround_counter += 1
+
+                self.counter_global = 0
                 self.send("begin_subround", - self.psi / 2 * const.K)
 
     def handle_drifts(self, X):
@@ -99,10 +121,21 @@ class Coordinator(Sender):
 
         if self.incoming_channels == const.K:
             self.incoming_channels = 0
+
+            self.E_global = np.add(self.E_global, self.X_sum/const.K)
+            self.counter_global = 0
             self.X_sum = 0
 
-            self.E_global = np.add(self.E_global, self.X_sum / const.K)
-            self.c_global = 0
+            w_train = self.E_global.reshape(1, -1)
+            w_train = np.insert(w_train, w_train.shape[1], self.counter, axis=1)
+
+            total_traffic = np.array([total_bytes(self.net), self.counter]).reshape(1, -1)
+            upstream_traffic = np.array([broadcast_bytes(self.net), self.counter]).reshape(1, -1)
+
+            # save coefficients
+            np.savetxt(self.file1, w_train, delimiter=',', newline='\n')
+            np.savetxt(self.file2, total_traffic, delimiter=',', newline='\n')
+            np.savetxt(self.file3, upstream_traffic, delimiter=',', newline='\n')
 
             self.send("begin_round", self.E_global)
 
@@ -132,13 +165,13 @@ class Site(Sender):
 
     def new_stream(self, stream):
         try:
-            res = self.win.state(stream)
+            res = self.win.update(stream)
             new, old = next(res)
 
             self.update_state(new, old)
 
             if self.warmup is True:
-                self.send("warm_up", self.S)
+                self.send("warm_up", (self.A, self.c))
                 if self.E_global is not None:
                     self.warmup = False
             else:
@@ -198,8 +231,6 @@ class Site(Sender):
 
     def send_drift(self):
         self.E = self.S
-        self.X = np.zeros((const.FEATURES + 1, 1))
-
         self.send("handle_drifts", self.X)
 
 
@@ -251,7 +282,7 @@ def start_simulation(c):
         f3 = open(const.START_FILE_NAME + "traffic/" + const.MED_FILE_NAME + '.csv', "w")
         f4 = open(const.START_FILE_NAME + "upstream/" + const.MED_FILE_NAME + '.csv', "w")
 
-        net.coord.file = f1
+        net.coord.file1 = f1
         net.coord.file2 = f3
         net.coord.file3 = f4
 

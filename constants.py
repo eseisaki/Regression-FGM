@@ -26,6 +26,7 @@ class Constants:
         self.MED_FILE_NAME = med_name
         self.START_FILE_NAME = start_name
         self.OUT_FILE = self.START_FILE_NAME + med_name
-        self.WARM = 10
 
+        self.WARM = 10
         self.TRAIN_POINTS = self.EPOCH * (1 - self.VPER) * self.POINTS
+        self.TOTAL_ROUNDS_FOR_PREDICT = 3000

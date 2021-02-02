@@ -4,6 +4,11 @@ import logging as log
 import csv
 from constants import Constants
 
+const = None
+A_zero = None
+c_zero = None
+
+
 log.basicConfig(filename='sim.log',
                 filemode='a',
                 format='%(asctime)s -- %(levelname)s -- %(lineno)d:%(filename)s(%(process)d) - %(message)s',
@@ -12,26 +17,22 @@ log.basicConfig(filename='sim.log',
 
 log.getLogger('fgm_ols.py')
 
+
 ###############################################################################
 #
 #  Safe function
 #
 ###############################################################################
-const = None
-A_zero = None
-c_zero = None
-
-
 def phi(X, x, A, E):
     A_in = np.linalg.pinv(A)
     norm = np.linalg.norm
 
-    a0 = norm(E)/const.K
+    stabilizer = const.K * 0.01
     a1 = norm(np.dot(A_in, X))
     a2 = norm(np.dot(A_in, x))
     a3 = norm(np.dot((np.dot(A_in, X)), E))
 
-    return (const.ERROR *a0*a1 + a2 + a3) - const.ERROR*a0
+    return (const.ERROR * norm(E) * a1 + a2 + a3) - const.ERROR * norm(E)
 
 
 ###############################################################################
