@@ -12,21 +12,6 @@ class LinearPredictionModel(LinearRegression):
     This model is for prediction only.  It has no fit method.
     You can initialize it with fixed values for coefficients
     and intercepts.
-
-    Parameters
-    ----------
-    coef, intercept : arrays
-        See attribute descriptions below.
-
-    Attributes
-    ----------
-    coef_ : array of shape (n_features, ) or (n_targets, n_features)
-        Coefficients of the linear model.  If there are multiple targets
-        (y 2D), this is a 2D array of shape (n_targets, n_features),
-        whereas if there is only one target, this is a 1D array of
-        length n_features.
-    intercept_ : float or array of shape of (n_targets,)
-        Independent term in the linear model.
     """
 
     def __init__(self, coef=None, intercept=None):
@@ -36,7 +21,6 @@ class LinearPredictionModel(LinearRegression):
                 intercept = np.zeros(coef.shape[0])
             else:
                 intercept = np.array(intercept)
-            # assert coef.shape[0] == intercept.shape[0]
         else:
             if intercept is not None:
                 raise ValueError("Provide coef only or both coef and intercept")
@@ -44,13 +28,13 @@ class LinearPredictionModel(LinearRegression):
         self.coef_ = coef
 
     def fit(self, X, y):
-        """This model does not have a fit method."""
+        # this model does not have a fit method.
         raise NotImplementedError("model is only for prediction")
 
 
-def mean_absolute_percentage_error(test_y, pred_y):
-    test_y, pred_y = np.array(test_y), np.array(pred_y)
-    return np.mean(np.abs((test_y - pred_y) / pred_y)) * 100
+# def mean_absolute_percentage_error(test_y, pred_y):
+#     test_y, pred_y = np.array(test_y), np.array(pred_y)
+#     return np.mean(np.abs((test_y - pred_y) / pred_y)) * 100
 
 
 def import_data_from_CSV(file):
@@ -213,8 +197,8 @@ def run_evaluation(c, isFix, norms):
         print("Make predictions using the testing set...")
 
         # output y_predict of given model
-        newModel = LinearPredictionModel(coef=w[:, 1:const.FEATURES + 1], intercept=w[:, 0])
-        y_pred = newModel.predict(xTest)
+        new_model = LinearPredictionModel(coef=w[:, 1:const.FEATURES + 1], intercept=w[:, 0])
+        y_pred = new_model.predict(xTest)
 
         print("Calculating MAE and coefficient of determination(R^2)....")
 
