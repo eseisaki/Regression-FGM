@@ -92,11 +92,11 @@ def create_drift_dataset(points, features, noise, epochs, file_name):
     return norms
 
 
-def create_dataset_custom(points,nodes, features, noise, epochs, file_name):
+def create_dataset_custom(points, nodes, features, noise, epochs, file_name):
     # start w picked from normal distribution
     w_fix = np.random.normal(loc=0, scale=1, size=features)
 
-    norms = [None]*int(points*epochs)
+    norms = [None] * int(points * epochs)
     x_list = []
     y_list = []
 
@@ -119,7 +119,7 @@ def create_dataset_custom(points,nodes, features, noise, epochs, file_name):
             var = np.random.normal(loc=0, scale=noise)
 
             y_list.append(np.dot(x.T, w) + var)
-            norms[(points * epoch + i)] = ([np.linalg.norm(w), (points * epoch + i + 1) ])
+            norms[(points * epoch + i)] = ([np.linalg.norm(w), (points * epoch + i + 1)])
             k += 1
 
     for i in range(len(y_list)):
@@ -141,14 +141,14 @@ def create_dataset_custom(points,nodes, features, noise, epochs, file_name):
 
 
 def create_dataset_custom2(points, nodes, features, noise, epochs, file_name):
-
     np.random.seed(0)
 
     # start w picked from normal distribution
     w_fix = np.random.normal(loc=0, scale=1, size=features)
     w_fix2 = np.random.normal(loc=2, scale=1, size=features)
 
-    norms = [None]*(points*epochs)
+    coef = [None] * (points * epochs)
+    norms = [None] * (points * epochs)
     x_list = []
     y_list = []
 
@@ -168,6 +168,8 @@ def create_dataset_custom2(points, nodes, features, noise, epochs, file_name):
 
             y_list.append(np.dot(x.T, w) + var)
             norms[(points * epoch + i)] = ([np.linalg.norm(w), points * epoch + i + 1])
+            coef[(points * epoch + i)] = w.copy().tolist()
+            coef[(points * epoch + i)].append(points * epoch + i + 1)
             k += 1
 
     for i in range(len(y_list)):
@@ -184,5 +186,9 @@ def create_dataset_custom2(points, nodes, features, noise, epochs, file_name):
     with open(file_name + "_norms.csv", "w+", newline="") as f2:
         writer = csv.writer(f2)
         writer.writerows(norms)
+
+    with open(file_name + "_coef.csv", "w+", newline="") as f3:
+        writer = csv.writer(f3)
+        writer.writerows(coef)
 
     return np.linalg.norm(w_fix)

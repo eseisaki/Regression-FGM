@@ -38,12 +38,17 @@ class LinearPredictionModel(LinearRegression):
 
 
 def import_data_from_CSV(file):
-    data = np.genfromtxt(file, delimiter=',')
+    data = np.genfromtxt(file, delimiter=',')  # pragma: no cover
 
     # count lines of csv
-    fi = open(file)
-    reader = csv.reader(fi)
-    lines = len(list(reader))
+    fi = open(file)  # pragma: no cover
+    reader = csv.reader(fi)  # pragma: no cover
+    lines = len(list(reader))  # pragma: no cover
+
+    return handle_one_line_files(lines, data)
+
+
+def handle_one_line_files(lines, data):
     if lines == 1:
         w = data[0:const.FEATURES + 1]
         epoch = data[const.FEATURES + 1]
@@ -66,7 +71,7 @@ def get_rounds_with_epoch(epoch):
     rounds = []
     # epoch must be an nx1 array
     for i in range(int(epoch.shape[0])):
-        rounds.appends(i + 1)
+        rounds.append(i + 1)
     rounds = np.array(rounds).reshape(-1, 1)
     roundsEpoch = epoch.reshape(-1, 1)
 
@@ -75,7 +80,7 @@ def get_rounds_with_epoch(epoch):
 
 def get_output_model_norm(w, epoch):
     output = []
-    # w,epoch must be nx1 arrays
+    # epoch must be nx1 array
     for i in range(epoch.shape[0]):
         output.append(np.linalg.norm(w[i]))
     output = np.array(output).reshape(-1, 1)
@@ -85,51 +90,34 @@ def get_output_model_norm(w, epoch):
 
 
 def handle_many_rounds(w, epoch):
-    if const.EPOCH <= 1:
-        w1 = w[0:1000, :].tolist()
-        epoch1 = epoch[0:1000].tolist()
+    w1 = w[0:1000, :].tolist()
+    epoch1 = epoch[0:1000].tolist()
 
-        full = int(w.shape[0]) - 1
-        half = int(full / 2)
+    full = int(w.shape[0]) - 1
+    half = int(full / 2)
 
-        w2 = w[half:half + 1000, :].tolist()
-        epoch2 = epoch[half:half + 1000].tolist()
+    w2 = w[half:half + 1000, :].tolist()
+    epoch2 = epoch[half:half + 1000].tolist()
 
-        w3 = w[full - 1000: full, :].tolist()
-        epoch3 = epoch[full - 1000: full].tolist()
+    w3 = w[full - 1000: full, :].tolist()
+    epoch3 = epoch[full - 1000: full].tolist()
 
-        w = np.array(w1 + w2 + w3)
-        epoch = np.array(epoch1 + epoch2 + epoch3)
+    w = np.array(w1 + w2 + w3)
+    epoch = np.array(epoch1 + epoch2 + epoch3)
 
-        return w, epoch
+    return w, epoch
 
 
-def get_predict_value(y, yTest):
+def get_predict_value(y_pred, y_test, epoch):
     mae = []
 
     for y in y_pred.T:
-        mae.append(mean_absolute_error(yTest, y))
+        mae.append(mean_absolute_error(y_test, y))
 
     mae = np.array(mae).reshape(-1, 1)
     maeEpoch = epoch.reshape(-1, 1)
 
     return np.concatenate((mae, maeEpoch), axis=1)
-
-
-def get_model_error(real_data, est_data):
-    # prepare dataframes
-    df1 = pd.DataFrame(real_data, columns=getColumnNames("w_real", features))
-    df2 = pd.DataFrame(est_data, columns=getColumnNames("w_est", features))
-    # outer join on 'time' column
-    mergedDf = pd.merge(df1, df2, on='time', how='outer')
-
-    subDf = mergedDf.filter(['time'], axis=1)
-
-    # calculate array with differences w_real - w_est
-    for i in range(features):
-        subDf["w_sub" + "_" + str(i)] = mergedDf["w_real" + "_" + str(i)] - mergedDf["w_est" + "_" + str(i)]
-    # calculate norm of w_real - w_est
-    return subDf.apply(np.linalg.norm, axis=1)
 
 
 def get_column_names(name: str, length):
@@ -142,93 +130,74 @@ def get_column_names(name: str, length):
     return columnNames
 
 
-def run_evaluation(c, isFix, norms):
+def get_model_error(real_data, est_data):
+    # prepare dataframes
+    df1 = pd.DataFrame(real_data, columns=get_column_names("w_real", const.FEATURES))  # pragma: no cover
+    df2 = pd.DataFrame(est_data, columns=get_column_names("w_est", const.FEATURES))  # pragma: no cover
+    # outer join on 'time' column
+    mergedDf = pd.merge(df1, df2, on='time', how='outer')
+
+    subDf = mergedDf.filter(['time'], axis=1)
+
+    # calculate array with differences w_real - w_est
+    for i in range(const.FEATURES):
+        subDf["w_sub" + "_" + str(i)] = mergedDf["w_real" + "_" + str(i)] - mergedDf["w_est" + "_" + str(i)]
+    # calculate norm of w_real - w_est
+    return subDf.apply(np.linalg.norm, axis=1)
+
+
+def run_evaluation(c, isFix):
     global const
     const = c
     inputFile = const.IN_FILE
 
-    print("\nEvaluating training model....")
+    print("\nEvaluating training model....")  # pragma: no cover
 
     # import model data
     w, epoch = import_data_from_CSV(const.OUT_FILE + '.csv')
-
     # calculate rounds
-    ROUNDS = []
-    for i in range(int(epoch.shape[0])):
-        ROUNDS.append(i + 1)
-    ROUNDS = np.array(ROUNDS).reshape(-1, 1)
-    r_epoch = epoch.reshape(-1, 1)
-
-    ROUNDS = np.concatenate((ROUNDS, r_epoch), axis=1)
-
+    ROUNDS = get_rounds_with_epoch(epoch)
     # calculate output model norm
-    OUTPUT = []
-    for i in range(epoch.shape[0]):
-        OUTPUT.append(np.linalg.norm(w[i]))
-
-    OUTPUT = np.array(OUTPUT).reshape(-1, 1)
-    epoch_tmp = epoch.reshape(-1, 1)
-
-    OUTPUT = np.concatenate((OUTPUT, epoch_tmp), axis=1)
-
+    OUTPUT = get_output_model_norm(w, epoch)
     # handle case for many rounds
     if int(w.shape[0]) > const.TOTAL_ROUNDS_FOR_PREDICT and const.EPOCH <= 1:
-        w1 = w[0:1000, :].tolist()
-        epoch1 = epoch[0:1000].tolist()
-
-        full = int(w.shape[0]) - 1
-        half = int(full / 2)
-
-        w2 = w[half:half + 1000, :].tolist()
-        epoch2 = epoch[half:half + 1000].tolist()
-
-        w3 = w[full - 1000: full, :].tolist()
-        epoch3 = epoch[full - 1000: full].tolist()
-
-        w = np.array(w1 + w2 + w3)
-        epoch = np.array(epoch1 + epoch2 + epoch3)
+        w, epoch = handle_many_rounds(w, epoch)
 
     if isFix:
         # import test data
         dfTest = np.genfromtxt(inputFile + '.csv', delimiter=',')
         xTest = dfTest[:, 1:const.FEATURES + 1]
-        yTest = dfTest[:, const.FEATURES + 1]
+        y_test = dfTest[:, const.FEATURES + 1]
 
-        print("Make predictions using the testing set...")
+        print("Make predictions using the testing set...")  # pragma: no cover
 
         # output y_predict of given model
         new_model = LinearPredictionModel(coef=w[:, 1:const.FEATURES + 1], intercept=w[:, 0])
         y_pred = new_model.predict(xTest)
 
-        print("Calculating MAE and coefficient of determination(R^2)....")
+        print("Calculating MAE and coefficient of determination(R^2)....")  # pragma: no cover
 
         # calculate accuracy of model
-        MAE = []
+        MAE = get_predict_value(y_pred, y_test, epoch)
 
-        for y in y_pred.T:
-            MAE.append(mean_absolute_error(yTest, y))
-
-        MAE = np.array(MAE).reshape(-1, 1)
-        epoch = epoch.reshape(-1, 1)
-
-        MAE = np.concatenate((MAE, epoch), axis=1)
-
-        f1 = open(const.START_FILE_NAME + "mae/" + const.MED_FILE_NAME + '.csv', "w")
-
-        np.savetxt(f1, MAE, delimiter=',', newline='\n')
-
-        f1.close()
+        f1 = open(const.START_FILE_NAME + "mae/" + const.MED_FILE_NAME + '.csv', "w")  # pragma: no cover
+        np.savetxt(f1, MAE, delimiter=',', newline='\n')  # pragma: no cover
+        f1.close()  # pragma: no cover
 
     else:
+        real_data = np.genfromtxt("io_files/inputs/drift_coef.csv", delimiter=',')  # pragma: no cover
+        est_data = np.genfromtxt(const.OUT_FILE + '.csv', delimiter=',')  # pragma: no cover
+        est_data = est_data[:, 1:]
         # calculate model error
-        pass
+        REGRET = get_model_error(real_data, est_data)
+        REGRET.to_csv(const.START_FILE_NAME + "regret/" + const.MED_FILE_NAME + '.csv')  # pragma: no cover
 
-    f2 = open(const.START_FILE_NAME + "output/" + const.MED_FILE_NAME + '.csv', "w")
-    np.savetxt(f2, OUTPUT, delimiter=',', newline='\n')
-    f2.close()
+    f2 = open(const.START_FILE_NAME + "output/" + const.MED_FILE_NAME + '.csv', "w")  # pragma: no cover
+    np.savetxt(f2, OUTPUT, delimiter=',', newline='\n')  # pragma: no cover
+    f2.close()  # pragma: no cover
 
-    f3 = open(const.START_FILE_NAME + "rounds/" + const.MED_FILE_NAME + '.csv', "w")
-    np.savetxt(f3, ROUNDS, delimiter=',', newline='\n')
-    f3.close()
+    f3 = open(const.START_FILE_NAME + "rounds/" + const.MED_FILE_NAME + '.csv', "w")  # pragma: no cover
+    np.savetxt(f3, ROUNDS, delimiter=',', newline='\n')  # pragma: no cover
+    f3.close()  # pragma: no cover
 
-    print("Finished.")
+    print("Finished.")  # pragma: no cover

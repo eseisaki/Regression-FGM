@@ -40,20 +40,22 @@ if __name__ == "__main__":
     choice = args.choice  # ~1: central, ~2: gm, ~3:fgm
 
     # Update constants:
-    const = Constants(points=args.points,
-                      epoch=args.epoch,
-                      var=args.var,
-                      k=args.k,
-                      features=args.features,
-                      error=args.error,
-                      vper=0 if args.new_dataset == "drift" else args.vper,
-                      win_size=args.win_size,
-                      win_step=args.win_step,
-                      test=args.test,
-                      debug=args.debug,
-                      in_file=args.in_file,
-                      med_name=args.med_name,
-                      start_name=args.start_name)
+    const = Constants()
+
+    const.set_constants(points=args.points,
+                        epoch=args.epoch,
+                        var=args.var,
+                        k=args.k,
+                        features=args.features,
+                        error=args.error,
+                        vper=0 if args.new_dataset == "drift" else args.vper,
+                        win_size=args.win_size,
+                        win_step=args.win_step,
+                        test=args.test,
+                        debug=args.debug,
+                        in_file=args.in_file,
+                        med_name=args.med_name,
+                        start_name=args.start_name)
 
     # Choose dataset
     new_dataset = args.new_dataset
@@ -84,15 +86,15 @@ if __name__ == "__main__":
     if choice == 1:
         # const.ERROR = norma*const.ERROR
         if gm_sim(const):
-            evaluate(const, (const.EPOCH <= 1), norma)
+            eval.run_evaluation(const, (const.EPOCH <= 1))
     elif choice == 2:
         fgm_ols(const)
-        eval.run_evaluation(const, (const.EPOCH <= 1), norma)
+        eval.run_evaluation(const, (const.EPOCH <= 1))
     elif choice == 3:
         fgm(const)
-        eval.run_evaluation(const, (const.EPOCH <= 1), norma)
+        eval.run_evaluation(const, (const.EPOCH <= 1))
     elif choice == 4:
-        eval.run_evaluation(const, (const.EPOCH <= 1), norma)
+        eval.run_evaluation(const, (const.EPOCH <= 1))
 
     print("\n\nSECONDS: %2f" % (time.time() - start_time))
     duration = 2000  # milliseconds

@@ -8,20 +8,21 @@ from statistics import *
 
 @pytest.fixture(autouse=True)
 def mock_config_system():
-    fgm.const = Constants(points=10,
-                          epoch=1,
-                          var=0,
-                          k=4,
-                          features=2,
-                          error=1,
-                          vper=0,
-                          win_size=2,
-                          win_step=1,
-                          test=False,
-                          debug=False,
-                          in_file="",
-                          med_name="",
-                          start_name="")
+    fgm.const = Constants()
+    fgm.const.set_constants(points=10,
+                            epoch=1,
+                            var=0,
+                            k=4,
+                            features=2,
+                            error=1,
+                            vper=0,
+                            win_size=2,
+                            win_step=1,
+                            test=False,
+                            debug=False,
+                            in_file="",
+                            med_name="",
+                            start_name="")
     return fgm.configure_system()
 
 

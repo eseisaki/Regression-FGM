@@ -9,8 +9,30 @@ import sys
 ###############################################################################
 
 class Constants:
-    def __init__(self, points: int, epoch: int, var: float, k: int, features: int, error: float, vper: float,
-                 win_size: int, win_step: int, test: bool, debug: bool, in_file: str, med_name: str, start_name: str):
+
+    def __init__(self):
+        self.K = None
+        self.ERROR = None
+        self.EPOCH = None
+        self.VPER = None
+        self.POINTS = None
+        self.FEATURES = None
+        self.SIZE = None
+        self.STEP = None
+        self.VAR = None
+        self.TEST = None
+        self.DEBUG = None
+        self.IN_FILE = None
+        self.MED_FILE_NAME = None
+        self.START_FILE_NAME = None
+        self.OUT_FILE = None
+        self.WARM = None
+        self.TRAIN_POINTS = None
+        self.TOTAL_ROUNDS_FOR_PREDICT = None
+
+    def set_constants(self, points: int, epoch: int, var: float, k: int, features: int, error: float, vper: float,
+                      win_size: int, win_step: int, test: bool, debug: bool, in_file: str, med_name: str,
+                      start_name: str):
         self.K = k  # no of nodes
         self.ERROR = error  # gm error rate
         self.EPOCH = epoch  # epochs number for drift dataset
@@ -30,3 +52,18 @@ class Constants:
         self.WARM = 10
         self.TRAIN_POINTS = self.EPOCH * (1 - self.VPER) * self.POINTS
         self.TOTAL_ROUNDS_FOR_PREDICT = 3000
+
+    def set_k(self, k):
+        self.K = k
+
+    def set_error(self, error):
+        self.ERROR = error
+
+    def set_epoch(self, epoch):
+        self.EPOCH = epoch
+
+    def set_points(self, points):
+        self.POINTS = points
+
+    def set_features(self, features):
+        self.FEATURES = features
