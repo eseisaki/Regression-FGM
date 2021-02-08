@@ -143,7 +143,12 @@ def get_model_error(real_data, est_data):
     for i in range(const.FEATURES):
         subDf["w_sub" + "_" + str(i)] = mergedDf["w_real" + "_" + str(i)] - mergedDf["w_est" + "_" + str(i)]
     # calculate norm of w_real - w_est
-    return subDf.apply(np.linalg.norm, axis=1)
+        # calculate norm of w_real - w_est
+        modelError = subDf.iloc[:, 1:].apply(np.linalg.norm, axis=1)
+        modelError = modelError.to_frame()
+        modelError = modelError.join(subDf['time'])
+
+    return modelError
 
 
 def run_evaluation(c, isFix):
