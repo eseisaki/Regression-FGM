@@ -195,7 +195,8 @@ def run_evaluation(c, isFix):
         est_data = est_data[:, 1:]
         # calculate model error
         REGRET = get_model_error(real_data, est_data)
-        REGRET.to_csv(const.START_FILE_NAME + "regret/" + const.MED_FILE_NAME + '.csv')  # pragma: no cover
+        REGRET.to_csv(const.START_FILE_NAME + "regret/" + const.MED_FILE_NAME + '.csv',header=False, index=False)  #
+        # pragma: no cover
 
     f2 = open(const.START_FILE_NAME + "output/" + const.MED_FILE_NAME + '.csv', "w")  # pragma: no cover
     np.savetxt(f2, OUTPUT, delimiter=',', newline='\n')  # pragma: no cover
