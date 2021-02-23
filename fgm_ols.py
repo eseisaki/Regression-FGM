@@ -8,7 +8,6 @@ const = None
 A_zero = None
 c_zero = None
 
-
 log.basicConfig(filename='sim.log',
                 filemode='a',
                 format='%(asctime)s -- %(levelname)s -- %(lineno)d:%(filename)s(%(process)d) - %(message)s',
@@ -24,15 +23,19 @@ log.getLogger('fgm_ols.py')
 #
 ###############################################################################
 def phi(X, x, A, E):
-    A_in = np.linalg.pinv(A)
-    norm = np.linalg.norm
+    if E is not None:
+        A_in = np.linalg.pinv(A)
+        norm = np.linalg.norm
 
-    stabilizer = const.K * 0.01
-    a1 = norm(np.dot(A_in, X))
-    a2 = norm(np.dot(A_in, x))
-    a3 = norm(np.dot((np.dot(A_in, X)), E))
+        a1 = norm(np.dot(A_in, X))
+        a2 = norm(np.dot(A_in, x))
+        a3 = norm(np.dot((np.dot(A_in, X)), E))
 
-    return (const.ERROR * norm(E) * a1 + a2 + a3) - const.ERROR * norm(E)
+        return (const.ERROR * norm(E) * a1 + a2 + a3) - const.ERROR
+
+    else:
+        log.error("Global estimate has no  acceptable value.")
+        raise ValueError
 
 
 ###############################################################################
@@ -73,12 +76,14 @@ class Coordinator(Sender):
             self.A_global = self.A_global / const.K
             self.c_global = self.c_global / const.K
 
+            self.E_global = np.linalg.pinv(self.A_global).dot(self.c_global)
+
             if self.counter >= const.K * const.WARM:
-                self.E_global = np.linalg.pinv(self.A_global).dot(self.c_global)
                 A_copy = np.copy(self.A_global)
 
                 self.A_global = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
                 self.c_global = np.zeros((const.FEATURES + 1, 1))
+
 
                 self.send("begin_round", (A_copy, self.E_global))
 
@@ -127,10 +132,6 @@ class Coordinator(Sender):
             self.E_global = np.linalg.pinv(self.A_global).dot(self.c_global)
             self.counter_global = 0
 
-            A_copy = np.copy(self.A_global)
-            self.A_global = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
-            self.c_global = np.zeros((const.FEATURES + 1, 1))
-
             w_train = self.E_global.reshape(1, -1)
             w_train = np.insert(w_train, w_train.shape[1], self.counter, axis=1)
 
@@ -141,6 +142,11 @@ class Coordinator(Sender):
             np.savetxt(self.file1, w_train, delimiter=',', newline='\n')
             np.savetxt(self.file2, total_traffic, delimiter=',', newline='\n')
             np.savetxt(self.file3, upstream_traffic, delimiter=',', newline='\n')
+
+            A_copy = np.copy(self.A_global)
+            self.A_global = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
+            self.c_global = np.zeros((const.FEATURES + 1, 1))
+
 
             self.send("begin_round", (A_copy, self.E_global))
 
@@ -181,6 +187,9 @@ class Site(Sender):
                 self.send("warm_up", (self.A, self.c))
                 if self.E_global is not None:
                     self.warmup = False
+
+                    self.A_last = np.copy(self.A)
+                    self.c_last = np.copy(self.c)
             else:
                 self.update_drift()
                 self.subround_process()
@@ -225,7 +234,7 @@ class Site(Sender):
         self.X = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
         self.x = np.zeros((const.FEATURES + 1, 1))
 
-        self.zeta = phi(A_zero, c_zero, self.A_global, self.E_global)
+        self.zeta = phi(self.X, self.x, self.A_global, self.E_global)  # phi(0,0, A_global,E_global)
         psi = const.K * self.zeta
         self.theta = - psi / 2 * const.K
         self.counter = 0
@@ -233,7 +242,7 @@ class Site(Sender):
     def begin_subround(self, theta):
         self.counter = 0
         self.theta = theta
-        self.zeta = phi(self.X, self.x, self.A_global, self.E_global)
+        self.zeta = phi(self.X, self.x, self.A_global, self.E_global)  # phi(X, x, A_global,E_global)
 
     def send_zeta(self):
         self.send("handle_zetas", phi(self.X, self.x, self.A_global, self.E_global))
@@ -241,10 +250,11 @@ class Site(Sender):
     def send_drift(self):
         self.A_last = np.copy(self.A)
         self.c_last = np.copy(self.c)
-        self.X = np.zeros((const.FEATURES + 1, 1))
+
+        self.X = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
         self.x = np.zeros((const.FEATURES + 1, 1))
 
-        self.send("handle_drifts", (self.A, self.c))
+        self.send("handle_drifts", (self.A_last, self.c_last))
 
 
 ###############################################################################
