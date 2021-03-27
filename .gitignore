@@ -7,5 +7,6 @@
 /tests/.ipynb_checkpoints/ex_visual-checkpoint.ipynb
 /gm.log
 /fgm.log
+/sim.log
 /gm_visual.ipynb
-/run.bat
+/test_visual.ipynb
