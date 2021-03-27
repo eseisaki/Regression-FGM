@@ -99,7 +99,7 @@ def test_get_model_error():
     data2 = [[3, 4, 1], [-2, -5, 3]]
 
     eval.const = Constants()
-    eval.const.set_features(1)  # time
+    eval.const.set_features(2)
 
     result = eval.get_model_error(data1, data2)
 
