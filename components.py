@@ -4,7 +4,7 @@ independent of the particular algorithm, and report them in a standardized
 manner.
 
 """
-from tools import *
+from tools import msg_size
 
 
 ###############################################################################

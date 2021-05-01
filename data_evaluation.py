@@ -1,13 +1,15 @@
 import numpy as np
 import pandas as pd
 import csv
-from sklearn.metrics import r2_score, mean_absolute_error
-from sklearn.linear_model import LinearRegression
+
+
+import sklearn.linear_model as linear_model
+import sklearn.metrics as metrics
 
 const = None
 
 
-class LinearPredictionModel(LinearRegression):
+class LinearPredictionModel(linear_model.LinearRegression):
     """
     This model is for prediction only.  It has no fit method.
     You can initialize it with fixed values for coefficients
@@ -112,7 +114,7 @@ def get_predict_value(y_pred, y_test, epoch):
     mae = []
 
     for y in y_pred.T:
-        mae.append(mean_absolute_error(y_test, y))
+        mae.append(metrics.mean_absolute_error(y_test, y))
 
     mae = np.array(mae).reshape(-1, 1)
     maeEpoch = epoch.reshape(-1, 1)

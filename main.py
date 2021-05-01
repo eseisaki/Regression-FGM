@@ -1,12 +1,15 @@
-from gm import start_simulation as gm_sim
-from fgm_ols import start_simulation as fgm_ols
-from fgm import start_simulation as fgm
-import data_evaluation as eval
-from constants import Constants
-from dataset import create_dataset, create_dataset_custom2, create_dataset_custom
 import time
 import winsound
 import argparse
+
+
+from gm import start_simulation as gm_sim
+from fgm_ols import start_simulation as fgm_sim
+from fgm import start_simulation as fgm_sec_sim
+from data_evaluation import run_evaluation
+from constants import Constants
+from dataset import create_dataset, create_dataset_custom2
+
 
 
 def boolean_string(s):
@@ -86,15 +89,16 @@ if __name__ == "__main__":
     if choice == 1:
         # const.ERROR = norma*const.ERROR
         if gm_sim(const):
-            eval.run_evaluation(const, (const.EPOCH <= 1))
+            run_evaluation(const, (const.EPOCH <= 1))
     elif choice == 2:
-        fgm_ols(const)
-        eval.run_evaluation(const, (const.EPOCH <= 1))
+        if fgm_sim(const):
+            run_evaluation(const, (const.EPOCH <= 1))
     elif choice == 3:
-        fgm(const)
-        eval.run_evaluation(const, (const.EPOCH <= 1))
+        if fgm_sec_sim(const):
+            run_evaluation(const, (const.EPOCH <= 1))
+        run_evaluation(const, (const.EPOCH <= 1))
     elif choice == 4:
-        eval.run_evaluation(const, (const.EPOCH <= 1))
+        run_evaluation(const, (const.EPOCH <= 1))
 
     print("\n\nSECONDS: %2f" % (time.time() - start_time))
     duration = 2000  # milliseconds

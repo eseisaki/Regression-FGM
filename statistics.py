@@ -1,4 +1,5 @@
-from components import *
+""" This module concludes all metric functions in order to  calculate the network communication"""
+from components import MulticastChannel
 
 
 ###############################################################################

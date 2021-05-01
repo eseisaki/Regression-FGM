@@ -1,7 +1,11 @@
-from statistics import *
+import sys
 import numpy as np
 import logging as log
-import csv
+
+from constants import Constants
+from components import Sender,StarNetwork
+from statistics import total_bytes, broadcast_bytes
+from tools import Window,remote_class
 
 log.basicConfig(filename='sim.log',
                 filemode='a',
@@ -17,7 +21,7 @@ log.getLogger('fgm_ols.py')
 #
 ###############################################################################
 norm = np.linalg.norm
-const = None
+const = Constants()
 
 
 def phi(x, E):

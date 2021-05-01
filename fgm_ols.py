@@ -1,12 +1,11 @@
-from statistics import *
+import sys
 import numpy as np
 import logging as log
-import csv
-from constants import Constants
 
-const = None
-A_zero = None
-c_zero = None
+from constants import Constants
+from components import Sender, StarNetwork
+from statistics import total_bytes, broadcast_bytes
+from tools import Window, remote_class
 
 log.basicConfig(filename='sim.log',
                 filemode='a',
@@ -15,6 +14,10 @@ log.basicConfig(filename='sim.log',
                 level=log.INFO)
 
 log.getLogger('fgm_ols.py')
+
+const = Constants()
+A_zero = None
+c_zero = None
 
 
 ###############################################################################
@@ -25,16 +28,13 @@ log.getLogger('fgm_ols.py')
 def phi(X, x, A, E):
     if E is not None:
         A_in = np.linalg.pinv(A)
-        norm = np.linalg.norm
+        a1 = np.linalg.norm(np.dot(A_in, X))
+        a2 = np.linalg.norm(np.dot(A_in, x))
+        a3 = np.linalg.norm(np.dot((np.dot(A_in, X)), E))
 
-        a1 = norm(np.dot(A_in, X))
-        a2 = norm(np.dot(A_in, x))
-        a3 = norm(np.dot((np.dot(A_in, X)), E))
-
-        return (const.ERROR * norm(E) * a1 + a2 + a3) - const.ERROR
-
+        return ((const.ERROR * a1) + a2 + a3) - const.ERROR
     else:
-        log.error("Global estimate has no  acceptable value.")
+        log.error("Global estimate has no  acceptable value.")  # pragma: no cover
         raise ValueError
 
 
@@ -78,22 +78,24 @@ class Coordinator(Sender):
 
             self.E_global = np.linalg.pinv(self.A_global).dot(self.c_global)
 
-            if self.counter >= const.K * const.WARM:
+            if self.counter >= const.K * const.WARM:  # warm-up duration is nodes*times
                 A_copy = np.copy(self.A_global)
 
                 self.A_global = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
                 self.c_global = np.zeros((const.FEATURES + 1, 1))
 
-
-                self.send("begin_round", (A_copy, self.E_global))
+                if not const.TEST:
+                    self.send("begin_round", (A_copy, self.E_global))
 
     # -------------------------------------------------------------------------
+
     # REMOTE METHODS
     def handle_increment(self, increment):
         self.counter_global = self.counter_global + increment
-
+        log.info(f"global counter: { self.counter_global}")
         if self.counter_global > const.K:
-            self.send("send_zeta", None)
+            if not const.TEST:
+                self.send("send_zeta", None)
 
     def handle_zetas(self, zeta):
         self.incoming_channels += 1
@@ -104,17 +106,18 @@ class Coordinator(Sender):
 
             if self.psi >= 0.01 * const.K * phi(A_zero, c_zero, self.A_global, self.E_global):
                 self.psi = 0
-
                 self.round_counter += 1
                 self.subround_counter += 1
-
-                self.send("send_drift", None)
-            else:
                 self.counter_global = 0
 
+                if not const.TEST:
+                    self.send("send_drift", None)
+            else:
+                self.counter_global = 0
                 self.subround_counter += 1
 
-                self.send("begin_subround", - self.psi / 2 * const.K)
+                if not const.TEST:
+                    self.send("begin_subround", - self.psi / 2 * const.K)
 
     def handle_drifts(self, msg):
         A, c = msg
@@ -138,17 +141,18 @@ class Coordinator(Sender):
             total_traffic = np.array([total_bytes(self.net), self.counter]).reshape(1, -1)
             upstream_traffic = np.array([broadcast_bytes(self.net), self.counter]).reshape(1, -1)
 
-            # save coefficients
-            np.savetxt(self.file1, w_train, delimiter=',', newline='\n')
-            np.savetxt(self.file2, total_traffic, delimiter=',', newline='\n')
-            np.savetxt(self.file3, upstream_traffic, delimiter=',', newline='\n')
+            if not const.TEST:
+                # save coefficients
+                np.savetxt(self.file1, w_train, delimiter=',', newline='\n')
+                np.savetxt(self.file2, total_traffic, delimiter=',', newline='\n')
+                np.savetxt(self.file3, upstream_traffic, delimiter=',', newline='\n')
 
             A_copy = np.copy(self.A_global)
             self.A_global = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
             self.c_global = np.zeros((const.FEATURES + 1, 1))
 
-
-            self.send("begin_round", (A_copy, self.E_global))
+            if not const.TEST:
+                self.send("begin_round", (A_copy, self.E_global))
 
 
 ###############################################################################
@@ -160,21 +164,23 @@ class Coordinator(Sender):
 class Site(Sender):
     def __init__(self, net, nid, ifc):
         super().__init__(net, nid, ifc)
-        self.warmup = True
+        self.X = A_zero
+        self.x = c_zero
         self.A = A_zero
         self.c = c_zero
         self.A_last = A_zero
         self.c_last = c_zero
-        self.X = A_zero
-        self.x = c_zero
+
         self.A_global = A_zero
         self.E_global = None
+
         self.zeta = 0
         self.theta = 0
         self.counter = 0
         self.increment = 0
 
         self.win = Window(size=const.SIZE, step=const.STEP, points=const.TRAIN_POINTS)
+        self.warmup = True
 
     def new_stream(self, stream):
         try:
@@ -184,7 +190,8 @@ class Site(Sender):
             self.update_state(new, old)
 
             if self.warmup is True:
-                self.send("warm_up", (self.A, self.c))
+                if not const.TEST:
+                    self.send("warm_up", (self.A, self.c))
                 if self.E_global is not None:
                     self.warmup = False
 
@@ -195,7 +202,7 @@ class Site(Sender):
                 self.subround_process()
 
         except StopIteration:
-            log.exeption("Window has failed.")
+            log.exception("Window has failed.")  # pragma: no cover
 
     def update_state(self, new, old):
         for x, y in new:
@@ -218,11 +225,14 @@ class Site(Sender):
 
     def subround_process(self):
         current_counter = np.floor((phi(self.X, self.x, self.A_global, self.E_global) - self.zeta) / self.theta)
+        log.info(f"current zeta: {phi(self.X, self.x, self.A_global, self.E_global)} for node {self.nid}")
+        log.info(f"init zeta: {self.zeta} for node {self.nid}")
         if current_counter > self.counter:
             self.increment = current_counter - self.counter
             self.counter = current_counter
 
-            self.send("handle_increment", self.increment)
+            if not const.TEST:
+                self.send("handle_increment", self.increment)
 
     # -------------------------------------------------------------------------
     # REMOTE METHOD
@@ -231,30 +241,29 @@ class Site(Sender):
         self.E_global = np.copy(E_global)
         self.A_global = np.copy(A_global)
 
-        self.X = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
-        self.x = np.zeros((const.FEATURES + 1, 1))
-
-        self.zeta = phi(self.X, self.x, self.A_global, self.E_global)  # phi(0,0, A_global,E_global)
+        self.counter = 0
+        self.zeta = phi(self.X, self.x, self.A_global, self.E_global)  # phi(0, 0, A_global, E_global)
         psi = const.K * self.zeta
         self.theta = - psi / 2 * const.K
-        self.counter = 0
 
     def begin_subround(self, theta):
         self.counter = 0
         self.theta = theta
-        self.zeta = phi(self.X, self.x, self.A_global, self.E_global)  # phi(X, x, A_global,E_global)
+        self.zeta = phi(self.X, self.x, self.A_global, self.E_global)  # phi(X, x, A_global, E_global)
 
     def send_zeta(self):
-        self.send("handle_zetas", phi(self.X, self.x, self.A_global, self.E_global))
+        if not const.TEST:
+            self.send("handle_zetas", phi(self.X, self.x, self.A_global, self.E_global))
 
     def send_drift(self):
         self.A_last = np.copy(self.A)
         self.c_last = np.copy(self.c)
 
-        self.X = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
-        self.x = np.zeros((const.FEATURES + 1, 1))
+        self.X = A_zero
+        self.x = c_zero
 
-        self.send("handle_drifts", (self.A_last, self.c_last))
+        if not const.TEST:
+            self.send("handle_drifts", (self.A_last, self.c_last))
 
 
 ###############################################################################
@@ -283,24 +292,24 @@ def configure_system():
 
         return n
     except TypeError:
-        log.exception("Exception while initializing network.")
+        log.exception("Exception while initializing network.")  # pragma: no cover
 
 
 def start_simulation(c):
-    log.info("START running start_simulation().")
+    log.info("START running start_simulation().")  # pragma: no cover
     global const
-    const = c
-
     global A_zero
-    A_zero = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
     global c_zero
+
+    const = c
+    A_zero = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
     c_zero = np.zeros((const.FEATURES + 1, 1))
 
     # configure network
     net = configure_system()
 
     if net is None:
-        log.warn("Network is empty or incorrect.")
+        log.warn("Network is empty or incorrect.")  # pragma: no cover
         return False
 
     # configure I/O
@@ -344,13 +353,13 @@ def start_simulation(c):
             net.sites[j].new_stream([(x_train, y_train)])
             j += 1
 
-        log.info(f"Subrounds: {net.coord.subround_counter}")
-        log.info(f"Rounds: {net.coord.round_counter}")
+        log.info(f"Subrounds: {net.coord.subround_counter}")  # pragma: no cover
+        log.info(f"Rounds: {net.coord.round_counter}")  # pragma: no cover
 
         # print final output
-        print("\n------------ RESULTS --------------")
-        print("SUBROUNDS:", net.coord.subround_counter)
-        print("ROUNDS:", net.coord.round_counter)
+        print("\n------------ RESULTS --------------")  # pragma: no cover
+        print("SUBROUNDS:", net.coord.subround_counter)  # pragma: no cover
+        print("ROUNDS:", net.coord.round_counter)  # pragma: no cover
 
         # close files
         f1.close()
@@ -358,9 +367,9 @@ def start_simulation(c):
         f3.close()
         f4.close()
 
-        log.info("END running start_simulation().")
+        log.info("END running start_simulation().")  # pragma: no cover
 
         return True
 
     except OSError:
-        log.exception("Exception while opening files.")
+        log.exception("Exception while opening files.")  # pragma: no cover

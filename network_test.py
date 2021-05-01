@@ -1,5 +1,5 @@
-from components import *
-from statistics import *
+from components import Sender,StarNetwork,Network
+from tools import remote_class
 
 
 class EchoSim:

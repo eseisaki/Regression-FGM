@@ -1,9 +1,11 @@
-from statistics import *
-import numpy as np
 import sys
+import numpy as np
 import logging as log
-import csv
+
 from constants import Constants
+from components import Sender, StarNetwork
+from statistics import total_bytes, broadcast_bytes
+from tools import Window, remote_class
 
 log.basicConfig(filename='sim.log',
                 filemode='a',
@@ -13,7 +15,7 @@ log.basicConfig(filename='sim.log',
 
 log.getLogger('gm.py')
 
-const = None
+const = Constants()
 
 
 ###############################################################################
@@ -32,9 +34,9 @@ class Coordinator(Sender):
         self.counter = 0
         self.round_counter = 0
 
-        #list_size = int(const.TRAIN_POINTS / const.K)
+        # list_size = int(const.TRAIN_POINTS / const.K)
 
-        #self.w_list = [None] * list_size
+        # self.w_list = [None] * list_size
         # TODO: change total traffic and upstream traffic exporting as w
         self.file = None
         self.file2 = None
@@ -58,7 +60,7 @@ class Coordinator(Sender):
             # compute coefficients
             self.w_global = np.linalg.pinv(self.A_global).dot(self.c_global)
 
-            self. incoming_channels = 0
+            self.incoming_channels = 0
 
             if self.counter >= const.K * const.WARM:
                 A_copy = np.copy(self.A_global)
@@ -66,7 +68,6 @@ class Coordinator(Sender):
 
                 self.A_global = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
                 self.c_global = np.zeros((const.FEATURES + 1, 1))
-                self.w_global = None
 
                 self.send("new_estimate", (A_copy, w_copy))
 
@@ -91,8 +92,8 @@ class Coordinator(Sender):
 
             w_train = self.w_global.reshape(1, -1)
             w_train = np.insert(w_train, w_train.shape[1], self.counter, axis=1)
-            #w_train = self.w_global.reshape(11).tolist()
-            #w_train.append(int(self.counter / const.K))
+            # w_train = self.w_global.reshape(11).tolist()
+            # w_train.append(int(self.counter / const.K))
 
             total_traffic = np.array([total_bytes(self.net), self.counter]).reshape(1, -1)
             upstream_traffic = np.array([broadcast_bytes(self.net), self.counter]).reshape(1, -1)
@@ -112,7 +113,6 @@ class Coordinator(Sender):
 
             self.A_global = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
             self.c_global = np.zeros((const.FEATURES + 1, 1))
-            self.w_global = None
 
             self.send("new_estimate", (A_copy, w_copy))
 
@@ -164,8 +164,8 @@ class Site(Sender):
                 a2 = norm(np.dot(A_in, self.d))
                 a3 = norm(np.dot((np.dot(A_in, self.D)), self.w_global))
 
-                req = const.ERROR*norm(self.w_global) * a1 + a2 + a3
-                if req > const.ERROR*norm(self.w_global):
+                req = const.ERROR * norm(self.w_global) * a1 + a2 + a3
+                if req > const.ERROR * norm(self.w_global):
                     log.info(f"Node {self.nid} raises an alert.")
                     log.info(f"{const.ERROR}*{a1}+{a2}+{a3} (={req}) > {const.ERROR}*")
                     self.send("alert", None)
@@ -308,7 +308,7 @@ def start_simulation(c):
         #     writer = csv.writer(f1)
         #     writer.writerows(w_list)
 
-            # close files
+        # close files
         f2.close()
         f3.close()
         f4.close()
