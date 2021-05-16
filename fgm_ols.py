@@ -64,6 +64,12 @@ class Coordinator(Sender):
     def update_counter(self):
         self.counter += 1
 
+        if const.POINTS < self.counter < const.POINTS * const.EPOCH and const.ERROR_B is not None:
+            const.ERROR = const.ERROR_B
+
+        if  self.counter >= const.POINTS * const.EPOCH and const.ERROR_B is not None:
+            const.ERROR = const.ERROR_A
+
     def warm_up(self, msg):
         A, c = msg
         self.incoming_channels += 1
@@ -91,8 +97,9 @@ class Coordinator(Sender):
 
     # REMOTE METHODS
     def handle_increment(self, increment):
+        # log.info(f"global counter: {self.counter_global}")
+        # log.info(f"increment:{increment}")
         self.counter_global = self.counter_global + increment
-        log.info(f"global counter: { self.counter_global}")
         if self.counter_global > const.K:
             if not const.TEST:
                 self.send("send_zeta", None)
@@ -117,7 +124,7 @@ class Coordinator(Sender):
                 self.subround_counter += 1
 
                 if not const.TEST:
-                    self.send("begin_subround", - self.psi / 2 * const.K)
+                    self.send("begin_subround", - self.psi / (2 * const.K))
 
     def handle_drifts(self, msg):
         A, c = msg
@@ -224,9 +231,15 @@ class Site(Sender):
         self.x = np.subtract(self.c, self.c_last)
 
     def subround_process(self):
+        log.info(f"START process for: {self.nid}")
+        log.info(f"phi: {(phi(self.X, self.x, self.A_global, self.E_global))}")
+        log.info(f"zeta: {self.zeta}")
+        log.info(f"theta: {self.theta}")
+
         current_counter = np.floor((phi(self.X, self.x, self.A_global, self.E_global) - self.zeta) / self.theta)
-        log.info(f"current zeta: {phi(self.X, self.x, self.A_global, self.E_global)} for node {self.nid}")
-        log.info(f"init zeta: {self.zeta} for node {self.nid}")
+
+        log.info(f"new counter: {current_counter}")
+        log.info(f"END process for: {self.nid}")
         if current_counter > self.counter:
             self.increment = current_counter - self.counter
             self.counter = current_counter
@@ -244,7 +257,7 @@ class Site(Sender):
         self.counter = 0
         self.zeta = phi(self.X, self.x, self.A_global, self.E_global)  # phi(0, 0, A_global, E_global)
         psi = const.K * self.zeta
-        self.theta = - psi / 2 * const.K
+        self.theta = - psi / (2 * const.K)
 
     def begin_subround(self, theta):
         self.counter = 0
@@ -304,6 +317,9 @@ def start_simulation(c):
     const = c
     A_zero = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
     c_zero = np.zeros((const.FEATURES + 1, 1))
+
+    print("error a", const.ERROR_A)
+    const.ERROR = const.ERROR_A
 
     # configure network
     net = configure_system()

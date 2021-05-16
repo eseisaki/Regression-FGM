@@ -1,7 +1,7 @@
 import time
 import winsound
 import argparse
-
+import numpy as np
 
 from gm import start_simulation as gm_sim
 from fgm_ols import start_simulation as fgm_sim
@@ -9,7 +9,6 @@ from fgm import start_simulation as fgm_sec_sim
 from data_evaluation import run_evaluation
 from constants import Constants
 from dataset import create_dataset, create_dataset_custom2
-
 
 
 def boolean_string(s):
@@ -26,17 +25,28 @@ parser.add_argument("points", help="Integer - Number of data points", type=int)
 parser.add_argument("epoch", help="Integer - Number of epochs used to create drift dataset", type=int)
 parser.add_argument("var", help="Float - Variance used for bias on dataset creation", type=float)
 parser.add_argument("features", help="Integer - Features used for dataset creation", type=int)
-parser.add_argument("vper", help="Float - Persentage of test data vs train data", type=float)
+parser.add_argument("vper", help="Float - Percentage of test data vs train data", type=float)
 parser.add_argument("error", help=" Float - FGM and GM threshold", type=float)
 parser.add_argument("win_size", help="Integer - The sliding window size", type=int)
 parser.add_argument("win_step", help="Integer - The size of slider of sliding window", type=int)
 parser.add_argument("test", help="Boolean - True if on testing mode", type=boolean_string)
-parser.add_argument("debug", help="Bolean - True if on debug mode", type=boolean_string)
+parser.add_argument("debug", help="Boolean - True if on debug mode", type=boolean_string)
 parser.add_argument("in_file", help="String - Name of input file (without format)", type=str)
 parser.add_argument("med_name", help="String - Part of name of output file(without format)", type=str)
 parser.add_argument("start_name", help="String - Part of name of output file(without format)", type=str)
 
 args = parser.parse_args()
+
+
+def find_error(perc, w):
+    if w is None:
+        print("w is empty")
+        return None
+
+    print("percentage is",perc)
+    print("error is: ", np.linalg.norm(perc * w))
+    return np.linalg.norm(perc * w)
+
 
 if __name__ == "__main__":
     # Choose algorithm
@@ -74,7 +84,7 @@ if __name__ == "__main__":
                                file_name=const.IN_FILE)
 
     elif new_dataset == 'drift':
-        norma = create_dataset_custom2(points=const.POINTS,
+        w_list = create_dataset_custom2(points=const.POINTS,
                                        features=const.FEATURES,
                                        nodes=const.K,
                                        noise=const.VAR,
@@ -91,6 +101,8 @@ if __name__ == "__main__":
         if gm_sim(const):
             run_evaluation(const, (const.EPOCH <= 1))
     elif choice == 2:
+        const.set_error_a(find_error(const.ERROR_PERC, w_list[0]))
+        const.set_error_b(find_error(const.ERROR_PERC, w_list[1]))
         if fgm_sim(const):
             run_evaluation(const, (const.EPOCH <= 1))
     elif choice == 3:

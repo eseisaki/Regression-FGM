@@ -142,20 +142,22 @@ def create_dataset_custom(points, nodes, features, noise, epochs, file_name):
 
 def create_dataset_custom2(points, nodes, features, noise, epochs, file_name):
     np.random.seed(0)
+    w_list = []
 
     # start w picked from normal distribution
-    w_fix = np.random.normal(loc=0, scale=1, size=features)
+    w_fix = np.random.normal(loc=1, scale=1, size=features)
     w_fix2 = np.random.normal(loc=2, scale=1, size=features)
+
+    w_list.append(w_fix)
+    w_list.append(w_fix2)
 
     coef = [None] * (points * epochs)
     norms = [None] * (points * epochs)
     x_list = []
     y_list = []
 
-    # increase w for 25% of an epoch
     for epoch in range(epochs):
         k = 0
-        # increase w for 25% of an epoch
         for i in range(points):
             if epoch % 2 == 0:
                 w = w_fix2
@@ -191,4 +193,4 @@ def create_dataset_custom2(points, nodes, features, noise, epochs, file_name):
         writer = csv.writer(f3)
         writer.writerows(coef)
 
-    return np.linalg.norm(w_fix)
+    return w_list

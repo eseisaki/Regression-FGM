@@ -13,6 +13,7 @@ class Constants:
     def __init__(self):
         self.K = None
         self.ERROR = None
+        self.ERROR_PERC = None
         self.EPOCH = None
         self.VPER = None
         self.POINTS = None
@@ -29,12 +30,14 @@ class Constants:
         self.WARM = None
         self.TRAIN_POINTS = None
         self.TOTAL_ROUNDS_FOR_PREDICT = None
+        self.ERROR_A = None
+        self.ERROR_B = None
 
     def set_constants(self, points: int, epoch: int, var: float, k: int, features: int, error: float, vper: float,
                       win_size: int, win_step: int, test: bool, debug: bool, in_file: str, med_name: str,
                       start_name: str):
         self.K = k  # no of nodes
-        self.ERROR = error  # gm error rate
+        self.ERROR_PERC = error  # gm error rate
         self.EPOCH = epoch  # epochs number for drift dataset
         self.VPER = vper  # percentage for test set
         self.POINTS = points  # total number of observations = POINTS*EPOCH
@@ -67,3 +70,9 @@ class Constants:
 
     def set_features(self, features):
         self.FEATURES = features
+
+    def set_error_a(self,norm):
+        self.ERROR_A = norm
+
+    def set_error_b(self,norm):
+        self.ERROR_B = norm
