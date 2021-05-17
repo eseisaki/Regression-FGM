@@ -50,6 +50,7 @@ class Coordinator(Sender):
         super().__init__(net, nid, ifc)
         self.counter_global = 0
         self.counter = 0
+        self.epoch = 0
         self.psi = 0
         self.incoming_channels = 0
         self.E_global = c_zero
@@ -64,10 +65,14 @@ class Coordinator(Sender):
     def update_counter(self):
         self.counter += 1
 
-        if const.POINTS < self.counter < const.POINTS * const.EPOCH and const.ERROR_B is not None:
-            const.ERROR = const.ERROR_B
+        if self.counter == const.POINTS:
+            res = const.EPOCH
+        else:
+            res = np.ceil(self.counter / (const.POINTS / const.EPOCH))
 
-        if  self.counter >= const.POINTS * const.EPOCH and const.ERROR_B is not None:
+        if res % 2 == 0:
+            const.ERROR = const.ERROR_B
+        else:
             const.ERROR = const.ERROR_A
 
     def warm_up(self, msg):
@@ -317,9 +322,6 @@ def start_simulation(c):
     const = c
     A_zero = np.zeros((const.FEATURES + 1, const.FEATURES + 1))
     c_zero = np.zeros((const.FEATURES + 1, 1))
-
-    print("error a", const.ERROR_A)
-    const.ERROR = const.ERROR_A
 
     # configure network
     net = configure_system()

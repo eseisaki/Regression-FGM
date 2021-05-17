@@ -13,7 +13,7 @@ def mock_config_system():
                             var=0,
                             k=4,
                             features=2,
-                            error=0.5,
+                            error=0.1,
                             vper=0,
                             win_size=2,
                             win_step=1,
@@ -22,6 +22,8 @@ def mock_config_system():
                             in_file="",
                             med_name="",
                             start_name="")
+
+    fgm.const.set_error(0.5)
     return fgm.configure_system()
 
 
@@ -63,6 +65,7 @@ def test_warm_up_complete(mock_config_system):
 
     net.coord.warm_up((test_A, test_c))
 
+    # works for const.WARM =1
     assert (6.9 < np.linalg.norm(net.coord.E_global) < 7 and (np.linalg.norm(net.coord.A_global) == 0))
 
 
@@ -169,7 +172,7 @@ def test_begin_round(mock_config_system):
 
     net.sites[0].begin_round((test_A, test_c))
 
-    assert 0.4 < np.linalg.norm(net.sites[0].zeta) < 0.6 and net.sites[0].counter == 0
+    assert 7.4 < np.linalg.norm(net.sites[0].zeta) < 7.6 and net.sites[0].counter == 0
 
 
 def test_begin_subround():

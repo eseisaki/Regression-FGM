@@ -5,10 +5,9 @@ import numpy as np
 
 from gm import start_simulation as gm_sim
 from fgm_ols import start_simulation as fgm_sim
-from fgm import start_simulation as fgm_sec_sim
 from data_evaluation import run_evaluation
 from constants import Constants
-from dataset import create_dataset, create_dataset_custom2
+from dataset import create_fixed_dataset, create_drift_dataset
 
 
 def boolean_string(s):
@@ -43,7 +42,7 @@ def find_error(perc, w):
         print("w is empty")
         return None
 
-    print("percentage is",perc)
+    print("percentage is", perc)
     print("error is: ", np.linalg.norm(perc * w))
     return np.linalg.norm(perc * w)
 
@@ -77,19 +76,19 @@ if __name__ == "__main__":
     if new_dataset == 'old':
         norma = input("Please enter norma:")
     elif new_dataset == 'fixed':
-        norma = create_dataset(points=const.POINTS,
-                               features=const.FEATURES,
-                               noise=const.VAR,
-                               test=const.VPER,
-                               file_name=const.IN_FILE)
+        norma = create_fixed_dataset(points=const.POINTS,
+                                     features=const.FEATURES,
+                                     noise=const.VAR,
+                                     test=const.VPER,
+                                     file_name=const.IN_FILE)
 
     elif new_dataset == 'drift':
-        w_list = create_dataset_custom2(points=const.POINTS,
-                                       features=const.FEATURES,
-                                       nodes=const.K,
-                                       noise=const.VAR,
-                                       epochs=const.EPOCH,
-                                       file_name=const.IN_FILE)
+        w_list = create_drift_dataset(points=const.POINTS,
+                                      features=const.FEATURES,
+                                      nodes=const.K,
+                                      noise=const.VAR,
+                                      epochs=const.EPOCH,
+                                      file_name=const.IN_FILE)
     else:
         raise Exception("new_dataset input is not valid")
 
@@ -97,19 +96,18 @@ if __name__ == "__main__":
     print("Start running, wait until finished:")
 
     if choice == 1:
-        # const.ERROR = norma*const.ERROR
+        const.set_error_a(find_error(const.ERROR_PERC, w_list[0]))
+        const.set_error_b(find_error(const.ERROR_PERC, w_list[1]))
+        const.set_error(const.ERROR_A)
         if gm_sim(const):
             run_evaluation(const, (const.EPOCH <= 1))
     elif choice == 2:
         const.set_error_a(find_error(const.ERROR_PERC, w_list[0]))
         const.set_error_b(find_error(const.ERROR_PERC, w_list[1]))
+        const.set_error(const.ERROR_A)
         if fgm_sim(const):
             run_evaluation(const, (const.EPOCH <= 1))
     elif choice == 3:
-        if fgm_sec_sim(const):
-            run_evaluation(const, (const.EPOCH <= 1))
-        run_evaluation(const, (const.EPOCH <= 1))
-    elif choice == 4:
         run_evaluation(const, (const.EPOCH <= 1))
 
     print("\n\nSECONDS: %2f" % (time.time() - start_time))

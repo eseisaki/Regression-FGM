@@ -34,9 +34,6 @@ class Coordinator(Sender):
         self.counter = 0
         self.round_counter = 0
 
-        # list_size = int(const.TRAIN_POINTS / const.K)
-
-        # self.w_list = [None] * list_size
         # TODO: change total traffic and upstream traffic exporting as w
         self.file = None
         self.file2 = None
@@ -44,6 +41,16 @@ class Coordinator(Sender):
 
     def update_counter(self):
         self.counter += 1
+
+        if self.counter == const.POINTS:
+            res = const.EPOCH
+        else:
+            res = np.ceil(self.counter / (const.POINTS / const.EPOCH))
+
+        if res % 2 == 0:
+            const.ERROR = const.ERROR_B
+        else:
+            const.ERROR = const.ERROR_A
 
     def warm_up(self, msg):
         A, c = msg
@@ -92,17 +99,11 @@ class Coordinator(Sender):
 
             w_train = self.w_global.reshape(1, -1)
             w_train = np.insert(w_train, w_train.shape[1], self.counter, axis=1)
-            # w_train = self.w_global.reshape(11).tolist()
-            # w_train.append(int(self.counter / const.K))
-
             total_traffic = np.array([total_bytes(self.net), self.counter]).reshape(1, -1)
             upstream_traffic = np.array([broadcast_bytes(self.net), self.counter]).reshape(1, -1)
-            # total_traffic = np.array([total_bytes(self.net), int(self.counter / const.K)]).reshape(1, -1)
-            # upstream_traffic = np.array([broadcast_bytes(self.net), int(self.counter / const.K)]).reshape(1, -1)
 
             # save coefficients
             np.savetxt(self.file, w_train, delimiter=',', newline='\n')
-            # self.w_list[int(self.counter / const.K)-1] = w_train
             np.savetxt(self.file2, total_traffic, delimiter=',', newline='\n')
             np.savetxt(self.file3, upstream_traffic, delimiter=',', newline='\n')
 
@@ -171,7 +172,7 @@ class Site(Sender):
                     self.send("alert", None)
 
         except StopIteration:
-            log.exeption("Window has failed.")
+            log.exception("Window has failed.")
             pass
 
     def update_state(self, new, old):
@@ -302,13 +303,8 @@ def start_simulation(c):
         print("\n------------ RESULTS --------------")
         print("ROUNDS:", net.coord.round_counter)
 
-        f1.close()
-        # w_list = [i for i in net.coord.w_list if i]
-        # with open(const.OUT_FILE + ".csv", "w+", newline="") as f1:
-        #     writer = csv.writer(f1)
-        #     writer.writerows(w_list)
-
         # close files
+        f1.close()
         f2.close()
         f3.close()
         f4.close()
