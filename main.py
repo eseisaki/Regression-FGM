@@ -113,4 +113,4 @@ if __name__ == "__main__":
     print("\n\nSECONDS: %2f" % (time.time() - start_time))
     duration = 2000  # milliseconds
     freq = 440  # Hz
-    # winsound.Beep(freq, duration)
+    winsound.Beep(freq, duration)
