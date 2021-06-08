@@ -165,8 +165,8 @@ class Site(Sender):
                 a2 = norm(np.dot(A_in, self.d))
                 a3 = norm(np.dot((np.dot(A_in, self.D)), self.w_global))
 
-                req = const.ERROR * norm(self.w_global) * a1 + a2 + a3
-                if req > const.ERROR * norm(self.w_global):
+                req = (const.ERROR * a1) + a2 + a3
+                if req > const.ERROR:
                     log.info(f"Node {self.nid} raises an alert.")
                     log.info(f"{const.ERROR}*{a1}+{a2}+{a3} (={req}) > {const.ERROR}*")
                     self.send("alert", None)

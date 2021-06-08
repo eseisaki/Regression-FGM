@@ -2,6 +2,7 @@ import time
 import winsound
 import argparse
 import numpy as np
+import os
 
 from gm import start_simulation as gm_sim
 from fgm_ols import start_simulation as fgm_sim
@@ -45,6 +46,13 @@ def find_error(perc, w):
     print("percentage is", perc)
     print("error is: ", np.linalg.norm(perc * w))
     return np.linalg.norm(perc * w)
+
+
+def delete_all_csv(my_dir):
+    for f in os.listdir(my_dir):
+        if not f.endswith(".csv"):
+            continue
+        os.remove(os.path.join(my_dir, f))
 
 
 if __name__ == "__main__":
@@ -109,6 +117,10 @@ if __name__ == "__main__":
             run_evaluation(const, (const.EPOCH <= 1))
     elif choice == 3:
         run_evaluation(const, (const.EPOCH <= 1))
+    elif choice == 4:
+        print("Start deletion of csv files...")
+        delete_all_csv("D:/Programming/Regression-FGM/io_files")
+        print("Deletion of csv files ended successfully")
 
     print("\n\nSECONDS: %2f" % (time.time() - start_time))
     duration = 2000  # milliseconds

@@ -106,16 +106,18 @@ class Coordinator(Sender):
         # log.info(f"increment:{increment}")
         self.counter_global = self.counter_global + increment
         if self.counter_global > const.K:
+            log.info("Sync Alert");
             if not const.TEST:
                 self.send("send_zeta", None)
 
     def handle_zetas(self, zeta):
         self.incoming_channels += 1
         self.psi = self.psi + zeta
+        log.info(f"zeta = {zeta}")
 
         if self.incoming_channels == const.K:
             self.incoming_channels = 0
-
+            log.info(f"psi = {self.psi}  and phi = {phi(A_zero, c_zero, self.A_global, self.E_global)}")
             if self.psi >= 0.01 * const.K * phi(A_zero, c_zero, self.A_global, self.E_global):
                 self.psi = 0
                 self.round_counter += 1
@@ -236,15 +238,15 @@ class Site(Sender):
         self.x = np.subtract(self.c, self.c_last)
 
     def subround_process(self):
-        log.info(f"START process for: {self.nid}")
-        log.info(f"phi: {(phi(self.X, self.x, self.A_global, self.E_global))}")
-        log.info(f"zeta: {self.zeta}")
-        log.info(f"theta: {self.theta}")
+        # log.info(f"START process for: {self.nid}")
+        # log.info(f"phi: {(phi(self.X, self.x, self.A_global, self.E_global))}")
+        # log.info(f"zeta: {self.zeta}")
+        # log.info(f"theta: {self.theta}")
 
         current_counter = np.floor((phi(self.X, self.x, self.A_global, self.E_global) - self.zeta) / self.theta)
 
-        log.info(f"new counter: {current_counter}")
-        log.info(f"END process for: {self.nid}")
+        # log.info(f"new counter: {current_counter}")
+        # log.info(f"END process for: {self.nid}")
         if current_counter > self.counter:
             self.increment = current_counter - self.counter
             self.counter = current_counter
@@ -261,16 +263,19 @@ class Site(Sender):
 
         self.counter = 0
         self.zeta = phi(self.X, self.x, self.A_global, self.E_global)  # phi(0, 0, A_global, E_global)
+        log.info(f"initial local zeta = {self.zeta}")
         psi = const.K * self.zeta
         self.theta = - psi / (2 * const.K)
 
     def begin_subround(self, theta):
         self.counter = 0
         self.theta = theta
+        log.info(f" (sub) initial local zeta = {self.zeta}")
         self.zeta = phi(self.X, self.x, self.A_global, self.E_global)  # phi(X, x, A_global, E_global)
 
     def send_zeta(self):
         if not const.TEST:
+            log.info(f"current zeta = {phi(self.X, self.x, self.A_global, self.E_global)}")
             self.send("handle_zetas", phi(self.X, self.x, self.A_global, self.E_global))
 
     def send_drift(self):

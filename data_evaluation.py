@@ -136,21 +136,23 @@ def get_model_error(real_data, est_data):
     # prepare dataframes
     df1 = pd.DataFrame(real_data, columns=get_column_names("w_real", const.FEATURES))  # pragma: no cover
     df2 = pd.DataFrame(est_data, columns=get_column_names("w_est", const.FEATURES))  # pragma: no cover
-    # outer join on 'time' column
-    mergedDf = pd.merge(df1, df2, on='time', how='outer')
 
-    subDf = mergedDf.filter(['time'], axis=1)
+    w_real_list = df1.set_index('time').T.to_dict('list')
+    w_est_list = df2.set_index('time').T.to_dict('list')
 
-    # calculate array with differences w_real - w_est
-    for i in range(const.FEATURES):
-        subDf["w_sub" + "_" + str(i)] = mergedDf["w_real" + "_" + str(i)] - mergedDf["w_est" + "_" + str(i)]
-    # calculate norm of w_real - w_est
-        # calculate norm of w_real - w_est
-        modelError = subDf.iloc[:, 1:].apply(np.linalg.norm, axis=1)
-        modelError = modelError.to_frame()
-        modelError = modelError.join(subDf['time'])
+    real_error = []
 
-    return modelError
+    for i in range(len(w_real_list)):
+        if i not in w_est_list.keys():
+            real_error.append(None)
+        else:
+            real_error.append(
+                np.linalg.norm(np.subtract(w_real_list.get(i), w_est_list.get(i))) / np.linalg.norm(w_real_list.get(i)))
+
+    real_error_df = pd.DataFrame(np.array(real_error), columns=["error"])
+    real_error_df['time'] = df1['time'].values
+
+    return real_error_df
 
 
 def run_evaluation(c, isFix):
