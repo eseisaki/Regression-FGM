@@ -2,7 +2,7 @@ import time
 import winsound
 import argparse
 import numpy as np
-import os
+import os, glob
 
 from gm import start_simulation as gm_sim
 from fgm_ols import start_simulation as fgm_sim
@@ -119,10 +119,46 @@ if __name__ == "__main__":
         run_evaluation(const, (const.EPOCH <= 1))
     elif choice == 4:
         print("Start deletion of csv files...")
-        delete_all_csv("D:/Programming/Regression-FGM/io_files")
+        algo = "fgm"
+        data = "drift"
+        error = "regret"
+
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/error")
+        if data == "drift":
+            delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/error/output")
+        delete_all_csv("D:/Progra"
+                       "mming/Regression-FGM/io_files/" + algo + "/" + data + "/error/"+error)
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/error/rounds")
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/error/traffic")
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/error/upstream")
+
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/features")
+        if data == "drift":
+            delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/features/output")
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/features/"+error)
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/features/rounds")
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/features/traffic")
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/features/upstream")
+
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/nodes")
+        if data == "drift":
+            delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/nodes/output")
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/nodes/"+error)
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/nodes/rounds")
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/nodes/traffic")
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/nodes/upstream")
+
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/window")
+        if data == "drift":
+            delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/window/output")
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/window/"+error)
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/window/rounds")
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/window/traffic")
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/window/upstream")
+
         print("Deletion of csv files ended successfully")
 
     print("\n\nSECONDS: %2f" % (time.time() - start_time))
     duration = 2000  # milliseconds
-    freq = 440  # Hz
+    freq = 741  # Hz
     winsound.Beep(freq, duration)

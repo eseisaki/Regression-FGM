@@ -74,8 +74,12 @@ def get_rounds_with_epoch(epoch):
     # epoch must be an nx1 array
     for i in range(int(epoch.shape[0])):
         rounds.append(i + 1)
+        if i == (int(epoch.shape[0])-1):
+            rounds.append(i+ 1) # add last round for t_end
     rounds = np.array(rounds).reshape(-1, 1)
+
     roundsEpoch = epoch.reshape(-1, 1)
+    roundsEpoch = np.append(roundsEpoch,[const.POINTS*const.EPOCH -1]).reshape(-1, 1)
 
     return np.concatenate((rounds, roundsEpoch), axis=1)
 
@@ -141,11 +145,16 @@ def get_model_error(real_data, est_data):
     w_est_list = df2.set_index('time').T.to_dict('list')
 
     real_error = []
+    last_known_est = 0
 
-    for i in range(len(w_real_list)):
+    for i in range(1, len(w_real_list) + 1):
         if i not in w_est_list.keys():
-            real_error.append(None)
+            if last_known_est!=0:
+                real_error.append(np.linalg.norm(np.subtract(w_real_list.get(i), last_known_est)) / np.linalg.norm( w_real_list.get(i)))
+            else:
+                real_error.append(0)
         else:
+            last_known_est = w_est_list.get(i)
             real_error.append(
                 np.linalg.norm(np.subtract(w_real_list.get(i), w_est_list.get(i))) / np.linalg.norm(w_real_list.get(i)))
 
