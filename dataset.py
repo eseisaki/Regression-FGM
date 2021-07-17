@@ -18,6 +18,7 @@ def create_fixed_dataset(points, features, noise, test, file_name):
                                           random_state=0)  # set for same data points for each run
 
     # print("sklearn", coef)
+    w_list = []
 
     coef = coef.reshape(-1, 1)
     inter = np.ones((X.shape[0], 1))
@@ -33,8 +34,7 @@ def create_fixed_dataset(points, features, noise, test, file_name):
     train_data = np.append(x_train, y_train, axis=1)
     test_data = np.append(x_test, y_test, axis=1)
 
-    norma = np.linalg.norm(coef)
-    print("sklearn_norm:", norma)
+    w_list.append(coef)
 
     # load dataset to csv file
     f1 = open(file_name + ".csv", "w")
@@ -45,7 +45,7 @@ def create_fixed_dataset(points, features, noise, test, file_name):
     np.savetxt(f2, test_data, delimiter=',', newline='\n')
     f2.close()
 
-    return norma
+    return w_list
 
 
 def create_drift_dataset(points, nodes, features, noise, epochs, file_name):

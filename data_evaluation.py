@@ -178,10 +178,12 @@ def run_evaluation(c, isFix):
     # calculate output model norm
     OUTPUT = get_output_model_norm(w, epoch)
     # handle case for many rounds
-    if int(w.shape[0]) > const.TOTAL_ROUNDS_FOR_PREDICT and const.EPOCH <= 1:
-        w, epoch = handle_many_rounds(w, epoch)
+
 
     if isFix:
+        if int(w.shape[0]) > const.TOTAL_ROUNDS_FOR_PREDICT:
+            w, epoch = handle_many_rounds(w, epoch)
+
         # import test data
         dfTest = np.genfromtxt(inputFile + '.csv', delimiter=',')
         xTest = dfTest[:, 1:const.FEATURES + 1]

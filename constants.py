@@ -54,7 +54,7 @@ class Constants:
 
         self.WARM = 1
         self.TRAIN_POINTS = self.EPOCH * (1 - self.VPER) * self.POINTS
-        self.TOTAL_ROUNDS_FOR_PREDICT = 3000
+        self.TOTAL_ROUNDS_FOR_PREDICT = 5000
 
     def set_k(self, k):
         self.K = k

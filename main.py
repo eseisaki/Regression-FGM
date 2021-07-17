@@ -81,14 +81,12 @@ if __name__ == "__main__":
     new_dataset = args.new_dataset
     norma = None
 
-    if new_dataset == 'old':
-        norma = input("Please enter norma:")
-    elif new_dataset == 'fixed':
-        norma = create_fixed_dataset(points=const.POINTS,
-                                     features=const.FEATURES,
-                                     noise=const.VAR,
-                                     test=const.VPER,
-                                     file_name=const.IN_FILE)
+    if new_dataset == 'fixed':
+        w_list = create_fixed_dataset(points=const.POINTS,
+                                      features=const.FEATURES,
+                                      noise=const.VAR,
+                                      test=const.VPER,
+                                      file_name=const.IN_FILE)
 
     elif new_dataset == 'drift':
         w_list = create_drift_dataset(points=const.POINTS,
@@ -105,13 +103,19 @@ if __name__ == "__main__":
 
     if choice == 1:
         const.set_error_a(find_error(const.ERROR_PERC, w_list[0]))
-        const.set_error_b(find_error(const.ERROR_PERC, w_list[1]))
+        if new_dataset == 'drift':
+            const.set_error_b(find_error(const.ERROR_PERC, w_list[1]))
+        elif new_dataset == 'fixed':
+            const.set_error_b(find_error(const.ERROR_PERC, w_list[0]))
         const.set_error(const.ERROR_A)
         if gm_sim(const):
             run_evaluation(const, (const.EPOCH <= 1))
     elif choice == 2:
         const.set_error_a(find_error(const.ERROR_PERC, w_list[0]))
-        const.set_error_b(find_error(const.ERROR_PERC, w_list[1]))
+        if new_dataset == 'drift':
+            const.set_error_b(find_error(const.ERROR_PERC, w_list[1]))
+        elif new_dataset == 'fixed':
+            const.set_error_b(find_error(const.ERROR_PERC, w_list[0]))
         const.set_error(const.ERROR_A)
         if fgm_sim(const):
             run_evaluation(const, (const.EPOCH <= 1))
@@ -126,8 +130,7 @@ if __name__ == "__main__":
         delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/error")
         if data == "drift":
             delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/error/output")
-        delete_all_csv("D:/Progra"
-                       "mming/Regression-FGM/io_files/" + algo + "/" + data + "/error/"+error)
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/error/" + error)
         delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/error/rounds")
         delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/error/traffic")
         delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/error/upstream")
@@ -135,7 +138,7 @@ if __name__ == "__main__":
         delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/features")
         if data == "drift":
             delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/features/output")
-        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/features/"+error)
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/features/" + error)
         delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/features/rounds")
         delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/features/traffic")
         delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/features/upstream")
@@ -143,7 +146,7 @@ if __name__ == "__main__":
         delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/nodes")
         if data == "drift":
             delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/nodes/output")
-        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/nodes/"+error)
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/nodes/" + error)
         delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/nodes/rounds")
         delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/nodes/traffic")
         delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/nodes/upstream")
@@ -151,7 +154,7 @@ if __name__ == "__main__":
         delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/window")
         if data == "drift":
             delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/window/output")
-        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/window/"+error)
+        delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/window/" + error)
         delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/window/rounds")
         delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/window/traffic")
         delete_all_csv("D:/Programming/Regression-FGM/io_files/" + algo + "/" + data + "/window/upstream")
